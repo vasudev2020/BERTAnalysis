@@ -10,6 +10,7 @@ Created on Thu Feb  4 14:19:49 2021
 import pickle
 
 from TopicModel import TopicModel
+import perTopicIdiomIdentifier
 import os
 
 import argparse
@@ -119,7 +120,19 @@ def predictTopic():
     view(topics)
     return topics
         
-def main():    
+def idiomTest():  
+    '''read data as a list of sentences'''
+    dataset = pickle.load(open("../Data/ID/vnics_dataset_full_ratio-split.pkl", "rb"), encoding='latin1')       
+    
+    data = [p['sent'].replace(' &apos;','\'') for p in dataset["train_sample"]+dataset["test_sample"]]
+    labels = [p['lab_int'] for p in dataset["train_sample"]+dataset["test_sample"]]
+    expressions = [p['verb']+' '+p['noun'] for p in dataset["train_sample"]+dataset["test_sample"]]
+    
+    TM = TopicModel()
+    TM.load()
+    topics = TM.topicModel(data,expressions,labels)
+    Folds = perTopicIdiomIdentifier.SplitToFolds(topics,5)
+    perTopicIdiomIdentifier.perTopicIdiomDetection(Folds)
     
     '''
     Data,Labels = {},{}
@@ -140,8 +153,7 @@ def main():
     #compute_coherence_values(start=2, limit=100, step=1)
         
     
-    #Folds = SplitToFolds(topics,5)
-    #perTopicIdiomDetection(Folds)
+    
     
     #print(len(Folds),len(Folds[0]))
     #for i in range(10): print(len(Folds[i][0]),len(Folds[i][1]),len(Folds[i][2]),len(Folds[i][3]),len(Folds[i][4]))
@@ -156,14 +168,14 @@ if __name__ == '__main__':
     parser.add_argument('--n', type=int, default=10, help='number of BNC files for training')
     parser.add_argument('--train', action='store_true',help='Train topic model')
     parser.add_argument('--test', action='store_true',help='Test topic model')
-    parser.add_argument('--use_vnic', action='store_true',help='Use VNIC data along with BNC for training')
+    parser.add_argument('--idiomtest', action='store_true',help='Test topic model')
 
+    parser.add_argument('--use_vnic', action='store_true',help='Use VNIC data along with BNC for training')
  
     args=parser.parse_args() 
-    if args.train:
-        trainTopicModel(args.n,args.use_vnic)
-    if args.test:
-        predictTopic()
+    if args.train:  trainTopicModel(args.n,args.use_vnic)
+    if args.test:   predictTopic()
+    if args.idiomtest:  idiomTest()
 
 
 #TM = TopicModel()
