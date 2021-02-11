@@ -12,6 +12,8 @@ import pickle
 from TopicModel import TopicModel
 import os
 
+import argparse
+
 
 def view(Data):    
     #print(Data)
@@ -87,21 +89,21 @@ def perLabelTopicModeling(no_topics):
     
     return p_topics,n_topics
     
-def trainTopicModel(n=1):
-    '''read data as a list of sentences'''
-    dataset = pickle.load(open("../Data/ID/vnics_dataset_full_ratio-split.pkl", "rb"), encoding='latin1')       
-    tr_data = [p['sent'].replace(' &apos;','\'') for p in dataset["train_sample"]]
-    
-    #TODO: Read data from BNC
+def trainTopicModel(n,use_vnic):
     files = os.listdir('../Data/BNC/ParsedTexts')
     data = []
-    for f in files[:n]:
-        data = data+open('../Data/BNC/ParsedTexts/'+f,'r').readlines()
+    #TODO: list of para or sent?
+    for f in files[:n]: data = data+open('../Data/BNC/ParsedTexts/'+f,'r').readlines()
         
-    print(len(data))
+    if use_vnic:
+        '''read data from VNIC'''
+        dataset = pickle.load(open("../Data/ID/vnics_dataset_full_ratio-split.pkl", "rb"), encoding='latin1')       
+        data = data + [p['sent'].replace(' &apos;','\'') for p in dataset["train_sample"]+dataset["test_sample"]]
+    print('Training data size:', len(data))
     TM = TopicModel()
     TM.train(data,40)
     TM.save()
+    print('Trainig finished')
     
 def predictTopic():
     '''read data as a list of sentences'''
@@ -146,10 +148,25 @@ def main():
     #print(Folds[0][0])
 
     
-        
-#main()
-trainTopicModel(5)
-#predictTopic()
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    
+    #parser.add_argument('--comp_op', type=str, default='add', help='name of the compositional operator (add/linear/holo)')
+    #parser.add_argument('--lr', type=float, default=0.25, help='Learning rate')
+    parser.add_argument('--n', type=int, default=10, help='number of BNC files for training')
+    parser.add_argument('--train', action='store_true',help='Train topic model')
+    parser.add_argument('--test', action='store_true',help='Test topic model')
+    parser.add_argument('--use_vnic', action='store_true',help='Use VNIC data along with BNC for training')
 
+ 
+    args=parser.parse_args() 
+    if args.train:
+        trainTopicModel(args.n,args.use_vnic)
+    if args.test:
+        predictTopic()
+
+
+#TM = TopicModel()
+#TM.train(['What is your name? my name is Vasu.What is topic modelling?I am fine.How do you do?','This is a sample sentence.'],2)
 
 
