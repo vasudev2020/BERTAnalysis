@@ -115,8 +115,41 @@ class TopicModel:
     
         Topics = pd.concat([Topics, pd.Series(data),pd.Series(expressions),pd.Series(labels)], axis=1)
         Topics.columns = ['Dominant_Topic', 'Topic_Perc_Contrib', 'Keywords','Sent','Expressions','Labels']
-        return Topics
         
+        return self.merge(Topics)
+     
+    def merge(self,Topics):
+        Topics = Topics.rename(columns={'Dominant_Topic':'Old_Topic'})
+        topic_list = list(Topics['Old_Topic'].unique())
+        
+        nk = Topics.groupby(['Labels']).size()[0]*2/len(topic_list)
+        pk = Topics.groupby(['Labels']).size()[1]*2/len(topic_list)
+
+        tt = Topics.groupby(['Old_Topic','Labels']).size()
+        Entry = []
+        newtopicid = 0
+        while len(topic_list)!=0:
+            topic = topic_list.pop()
+            
+            req_p = pk-tt[topic][1]
+            req_n = nk-tt[topic][0]
+            
+            minv = req_p+req_n
+            mint = None
+            for t in topic_list:
+                if abs(req_p-tt[t][1])+abs(req_n-tt[t][0])<minv:
+                    minv = abs(req_p-tt[t][1])+abs(req_n-tt[t][0])
+                    mint = t
+            if mint is not None:    topic_list.remove(mint)
+            e = Topics.loc[(Topics['Old_Topic']==topic) | (Topics['Old_Topic']==mint)].reset_index()
+            e = pd.concat([pd.Series([newtopicid]*len(e.index),name='Dominant_Topic'),e],axis=1)
+            Entry.append(e)
+            newtopicid+=1
+        return pd.concat(Entry,ignore_index=True)
+        
+    def __Elbow_Solhouette(self):
+        #TODO: implemet
+        return
     
     '''Return a list of topic models and it's corresponding coherence values'''
     def compute_coherence_values(self, data, limit, start=2, step=3):

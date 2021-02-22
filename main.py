@@ -10,8 +10,10 @@ Created on Thu Feb  4 14:19:49 2021
 import pickle
 
 from TopicModel import TopicModel
-import perTopicIdiomIdentifier
+from Analyser import Analyser
 import os
+
+import pandas as pd
 
 import argparse
 
@@ -25,9 +27,8 @@ def view(Data):
     #print(Data.groupby(['Dominant_Topic','Labels']).size())    
     
     #Topics = {}
-    Exps = {}
-    Labels = {}
-    Keywords = {}
+    Exps,Labels,Keywords,OldTopics = {},{},{},{}
+    
     for i,row in Data.iterrows():
         exp = row['Expressions']
         topic = row['Dominant_Topic']
@@ -38,8 +39,12 @@ def view(Data):
         if exp not in Exps[topic]:  Exps[topic].append(exp)
         if topic not in Labels:   Labels[topic]=[]
         Labels[topic].append(label)
-        if topic not in Keywords:   Keywords[topic]=kw
-        else:   assert Keywords[topic]==kw
+        if topic not in Keywords:   Keywords[topic]=[kw]
+        elif kw not in Keywords[topic]: Keywords[topic].append(kw)
+        #else:   assert Keywords[topic].append(==kw
+        
+        if topic not in OldTopics:    OldTopics[topic]=[]
+        if row['Old_Topic'] not in OldTopics[topic]:    OldTopics[topic].append(row['Old_Topic'])
         
         #if topic not in Topics: Topics[topic]={}
         #if exp not in Topics[topic]:    Topics[topic][exp]=0
@@ -52,7 +57,8 @@ def view(Data):
         print('Topic:',int(topic))
         print('Labels:',sum(Labels[topic]),len(Labels[topic]),ratio)
         print('Expressions:',', '.join(Exps[topic]))
-        print('Keywords:', Keywords[topic])
+        for k in Keywords[topic]:   print('Keywords:', k)
+        print('Old Topics:',OldTopics[topic])
 
     '''
     for topic in Topics:
@@ -89,8 +95,31 @@ def perLabelTopicModeling(no_topics):
     n_topics = TM.topicModel(n_data,n_exps,[0]*len(n_data))
     
     return p_topics,n_topics
+
+def perExpressionTopicModeling(no_topics):
+    Data,Labels = {},{}
+    dataset = pickle.load(open("../Data/ID/vnics_dataset_full_ratio-split.pkl", "rb"), encoding='latin1')       
+    data = [p['sent'].replace(' &apos;','\'') for p in dataset["train_sample"]+dataset["test_sample"]]
+    expressions = [p['verb']+' '+p['noun'] for p in dataset["train_sample"]+dataset["test_sample"]]   
+    labels = [p['lab_int'] for p in dataset["train_sample"]+dataset["test_sample"]]
     
-def trainTopicModel(n,use_vnic):
+    for sent,exp,label in zip(data, expressions, labels):
+        if exp not in Data: 
+            Data[exp]=[]
+            Labels[exp]=[]
+        Data[exp].append(sent)
+        Labels[exp].append(label)
+     
+    TM = TopicModel()
+
+    for exp in Data:
+        print(exp)
+        TM.train(Data[exp],4)
+        topics = TM.topicModel(Data[exp],[exp]*len(Data[exp]),Labels[exp])
+        view(topics)
+    
+    
+def trainTopicModel(n,num_topics,use_vnic):
     files = os.listdir('../Data/BNC/ParsedTexts')
     data = []
     #TODO: list of para or sent?
@@ -102,7 +131,7 @@ def trainTopicModel(n,use_vnic):
         data = data + [p['sent'].replace(' &apos;','\'') for p in dataset["train_sample"]+dataset["test_sample"]]
     print('Training data size:', len(data))
     TM = TopicModel()
-    TM.train(data,40)
+    TM.train(data,num_topics)
     TM.save()
     print('Trainig finished')
     
@@ -117,6 +146,7 @@ def predictTopic():
     TM = TopicModel()
     TM.load()
     topics = TM.topicModel(data,expressions,labels)
+    #with pd.option_context('display.max_rows', None, 'display.max_columns', None):    print(topics)
     view(topics)
     return topics
         
@@ -131,49 +161,27 @@ def idiomTest():
     TM = TopicModel()
     TM.load()
     topics = TM.topicModel(data,expressions,labels)
-    Folds = perTopicIdiomIdentifier.SplitToFolds(topics,5)
-    perTopicIdiomIdentifier.perTopicIdiomDetection(Folds)
-    
-    '''
-    Data,Labels = {},{}
-    for sent,exp,label in zip(data,expressions,labels):
-        if exp not in Data: 
-            Data[exp]=[]
-            Labels[exp]=[]
-        Data[exp].append(sent)
-        Labels[exp].append(label)
-        
-    for exp in Data:
-        print(exp)
-        topics = topicModel(Data[exp],[exp]*len(Data[exp]),Labels[exp],4)
-        view(topics)
-    
-    '''
+    A = Analyser(5)
+    A.perTopicAnalysis(topics)        
     
     #compute_coherence_values(start=2, limit=100, step=1)
         
-    
-    
-    
-    #print(len(Folds),len(Folds[0]))
-    #for i in range(10): print(len(Folds[i][0]),len(Folds[i][1]),len(Folds[i][2]),len(Folds[i][3]),len(Folds[i][4]))
-    #print(Folds[0][0])
-
     
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     
     #parser.add_argument('--comp_op', type=str, default='add', help='name of the compositional operator (add/linear/holo)')
     #parser.add_argument('--lr', type=float, default=0.25, help='Learning rate')
-    parser.add_argument('--n', type=int, default=10, help='number of BNC files for training')
+    parser.add_argument('--n', type=int, default=1, help='number of BNC files for training')
+    parser.add_argument('--num_topics', type=int, default=10, help='number of topics')
+
     parser.add_argument('--train', action='store_true',help='Train topic model')
     parser.add_argument('--test', action='store_true',help='Test topic model')
     parser.add_argument('--idiomtest', action='store_true',help='Test topic model')
-
     parser.add_argument('--use_vnic', action='store_true',help='Use VNIC data along with BNC for training')
  
     args=parser.parse_args() 
-    if args.train:  trainTopicModel(args.n,args.use_vnic)
+    if args.train:  trainTopicModel(args.n, args.num_topics, args.use_vnic)
     if args.test:   predictTopic()
     if args.idiomtest:  idiomTest()
 
