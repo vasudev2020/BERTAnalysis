@@ -71,7 +71,10 @@ class TopicModel:
         corpus,data_lemmatized = self.createDictCorpus(data)
 
         
-        self.lda_model = gensim.models.LdaMulticore(corpus=corpus, num_topics=num_topics, id2word=self.id2word)
+        #self.lda_model = gensim.models.LdaMulticore(corpus=corpus, num_topics=num_topics, id2word=self.id2word)
+        #self.lda_model = gensim.models.LdaMulticore(corpus=corpus, num_topics=num_topics, id2word=self.id2word,alpha=[0.000001]*num_topics)
+        self.lda_model = gensim.models.LdaMulticore(corpus=corpus, num_topics=num_topics, id2word=self.id2word,alpha='asymmetric')
+        
         #lda_model = gensim.models.ldamodel.LdaModel(corpus=corpus, num_topics=num_topics, id2word=id2word)
         #for topic_num in range(num_topics): print(topic_num, lda_model.show_topic(topic_num))
         
@@ -107,7 +110,9 @@ class TopicModel:
 
         Topics = pd.DataFrame()
         for row in self.lda_model[corpus]:
-            row = sorted(row, key=lambda x: (x[1]), reverse=True)        
+            row = sorted(row, key=lambda x: (x[1]), reverse=True)  
+            #print(row)
+            #continue
             topic_num, prop_topic = row[0] # Get the Dominant topic, Perc Contribution and Keywords for each document
             wp = self.lda_model.show_topic(topic_num)
             topic_keywords = ", ".join([word for word, prop in wp])
@@ -115,7 +120,6 @@ class TopicModel:
     
         Topics = pd.concat([Topics, pd.Series(data),pd.Series(expressions),pd.Series(labels)], axis=1)
         Topics.columns = ['Dominant_Topic', 'Topic_Perc_Contrib', 'Keywords','Sent','Expressions','Labels']
-        
         return self.merge(Topics)
      
     def merge(self,Topics):
@@ -131,14 +135,16 @@ class TopicModel:
         while len(topic_list)!=0:
             topic = topic_list.pop()
             
-            req_p = pk-tt[topic][1]
-            req_n = nk-tt[topic][0]
+            req_p = pk-tt[topic][1] if 1 in tt[topic] else 0
+            req_n = nk-tt[topic][0] if 0 in tt[topic] else 0
             
             minv = req_p+req_n
             mint = None
             for t in topic_list:
-                if abs(req_p-tt[t][1])+abs(req_n-tt[t][0])<minv:
-                    minv = abs(req_p-tt[t][1])+abs(req_n-tt[t][0])
+                nt = tt[t][0] if 0 in tt[t] else 0
+                pt = tt[t][1] if 1 in tt[t] else 0
+                if abs(req_p-pt)+abs(req_n-nt)<minv:
+                    minv = abs(req_p-pt)+abs(req_n-nt)
                     mint = t
             if mint is not None:    topic_list.remove(mint)
             e = Topics.loc[(Topics['Old_Topic']==topic) | (Topics['Old_Topic']==mint)].reset_index()
