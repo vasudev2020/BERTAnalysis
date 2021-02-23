@@ -123,6 +123,7 @@ def trainTopicModel(n,num_topics,use_vnic):
     files = os.listdir('../Data/BNC/ParsedTexts')
     data = []
     #TODO: list of para or sent?
+    if n==-1:   n = len(files)
     for f in files[:n]: data = data+open('../Data/BNC/ParsedTexts/'+f,'r').readlines()
         
     if use_vnic:
