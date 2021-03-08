@@ -15,6 +15,7 @@ import spacy
 from nltk.corpus import stopwords
 path = '../Data/BERTAnalysis/'
 
+
 class TopicModel:
     def __init__(self):
         self.nlp = spacy.load('en', disable=['parser', 'ner'])
@@ -120,38 +121,10 @@ class TopicModel:
     
         Topics = pd.concat([Topics, pd.Series(data),pd.Series(expressions),pd.Series(labels)], axis=1)
         Topics.columns = ['Dominant_Topic', 'Topic_Perc_Contrib', 'Keywords','Sent','Expressions','Labels']
-        return self.merge(Topics)
+        #if merge:   return self.merge(Topics)
+        return Topics
      
-    def merge(self,Topics):
-        Topics = Topics.rename(columns={'Dominant_Topic':'Old_Topic'})
-        topic_list = list(Topics['Old_Topic'].unique())
-        
-        nk = Topics.groupby(['Labels']).size()[0]*2/len(topic_list)
-        pk = Topics.groupby(['Labels']).size()[1]*2/len(topic_list)
-
-        tt = Topics.groupby(['Old_Topic','Labels']).size()
-        Entry = []
-        newtopicid = 0
-        while len(topic_list)!=0:
-            topic = topic_list.pop()
-            
-            req_p = pk-tt[topic][1] if 1 in tt[topic] else 0
-            req_n = nk-tt[topic][0] if 0 in tt[topic] else 0
-            
-            minv = req_p+req_n
-            mint = None
-            for t in topic_list:
-                nt = tt[t][0] if 0 in tt[t] else 0
-                pt = tt[t][1] if 1 in tt[t] else 0
-                if abs(req_p-pt)+abs(req_n-nt)<minv:
-                    minv = abs(req_p-pt)+abs(req_n-nt)
-                    mint = t
-            if mint is not None:    topic_list.remove(mint)
-            e = Topics.loc[(Topics['Old_Topic']==topic) | (Topics['Old_Topic']==mint)].reset_index()
-            e = pd.concat([pd.Series([newtopicid]*len(e.index),name='Dominant_Topic'),e],axis=1)
-            Entry.append(e)
-            newtopicid+=1
-        return pd.concat(Entry,ignore_index=True)
+    
         
     def __Elbow_Solhouette(self):
         #TODO: implemet
