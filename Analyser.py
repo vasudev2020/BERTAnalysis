@@ -9,6 +9,8 @@ Created on Mon Feb  8 17:09:53 2021
 from sklearn.metrics import accuracy_score, f1_score, roc_auc_score
 from sklearn.model_selection import StratifiedKFold
 from sklearn.neural_network import MLPClassifier
+from statistics import mean
+from scipy import stats
 #import math
 #import warnings
 from tqdm import tqdm
@@ -26,6 +28,7 @@ class Analyser:
         skf = StratifiedKFold(n_splits=self.num_folds)
         
         self.Folds = []
+        assert sorted(Data['Dominant_Topic'].unique())==list(range(len(Data['Dominant_Topic'].unique())))
         for t in Data['Dominant_Topic'].unique():   self.Folds.append([])
         
         for t in Data['Dominant_Topic'].unique():
@@ -37,6 +40,9 @@ class Analyser:
     def perTopicAnalysis(self,Data):
         model = MLPClassifier()
         self.CreateFolds(Data)
+        
+        #TODO: print warning if labels<5
+        
         Acc,F1,Auc=[],[],[]
         for tr_topic in range(len(self.Folds)):
             Acc.append([])
@@ -58,6 +64,11 @@ class Analyser:
                 for ts_topic in range(len(self.Folds)):
                     testX = [self.bert.getMean(sent) for sent in self.Folds[ts_topic][test_fold]['Sent']]
                     testY = [label for label in self.Folds[ts_topic][test_fold]['Labels']]
+                    
+                    if sum(testY)==0 or sum(testY)==len(testY): 
+                        print(ts_topic,test_fold, sum(testY))
+                        print(Data.groupby(['Dominant_Topic','Labels']).size()[ts_topic])
+                    
                     pred = model.predict(testX)
                     pred_proba = [proba[1] for proba in model.predict_proba(testX)]
             
@@ -65,14 +76,35 @@ class Analyser:
                     F1[tr_topic][ts_topic] += f1_score(testY, pred, average='binary')
                     Auc[tr_topic][ts_topic] += roc_auc_score(testY,pred_proba)
          
+        '''
         print('Accuracies:')           
         for tr_topic in range(len(self.Folds)):
             print(' '.join([str(round(score/5,4)) for score in Acc[tr_topic]]))
+        print(' '.join([str(round(Acc[topic][topic]/5,4)) for topic in range(len(self.Folds))]))
+
         print('F1-scores:')           
         for tr_topic in range(len(self.Folds)):    
             print(' '.join([str(round(score/5,4)) for score in F1[tr_topic]]))
+        print(' '.join([str(round(F1[topic][topic]/5,4)) for topic in range(len(self.Folds))]))
+
         
         print('Auc scores:')           
         for tr_topic in range(len(self.Folds)):
             print(' '.join([str(round(score/5,4)) for score in Auc[tr_topic]]))
+        print(' '.join([str(round(Auc[topic][topic]/5,4)) for topic in range(len(self.Folds))]))
+        
+        diff = mean([(Auc[t][t]/5 - ((sum(Auc[t])-Auc[t][t]) / (5*(len(self.Folds)-1)))) for t in range(len(self.Folds))])
+        print('diff:',diff)
+
+        '''
+        seen_score = [Auc[t][t]/5 for t in range(len(self.Folds))]
+        mean_unseen_score = [(sum(Auc[t]) - Auc[t][t]) / (5 * (len(self.Folds)-1)) for t in range(len(self.Folds))]
+        #
+        print('mean seen score:',round(mean(seen_score),4))
+        print('mean unseen score:',round(mean(mean_unseen_score),4))
+        print('difference:',round(mean([a-b for a,b in zip(seen_score,mean_unseen_score)]),4))
+        #print(stats.ttest_ind(seen_score,mean_unseen_score))
+        ttest = list(stats.ttest_rel(seen_score,mean_unseen_score))
+        print('T-Test Results:',round(ttest[0],4),round(ttest[1],4))
+        
         
