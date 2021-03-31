@@ -20,3 +20,11 @@ Do a five fold cross validation of per topic(merged) idiom detection
 python main.py --idiomtest
 '''
 
+BERTopic
+
+'''pip install bertopic'''
+
+'''python
+python main.py --bertopic
+'''
+

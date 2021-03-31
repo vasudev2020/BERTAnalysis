@@ -13,39 +13,16 @@ import argparse
 
 from bertopic import BERTopic
 
-from TopicModel import TopicModel
+#from TopicModel import TopicModel
 from Analyser import Analyser
 from Merger import Merger
-import os
-
-    
-def view(Data):        
-    Record = {}
-    
-    for i,row in Data.iterrows():
-        topic = row['Dominant_Topic']
-        oldtopic = row['Old_Topic'] if 'Old_Topic' in row else topic
-
-        if topic not in Record: 
-            Record[topic]={'Exps':[],'Labels':[],'Keywords':[],'OldTopics':[]}
-        if row['Expressions'] not in Record[topic]['Exps']:  Record[topic]['Exps'].append(row['Expressions'])
-        Record[topic]['Labels'].append(row['Labels'])
-        if row['Keywords'] not in Record[topic]['Keywords']:  Record[topic]['Keywords'].append(row['Keywords'])
-        if oldtopic not in Record[topic]['OldTopics']:  Record[topic]['OldTopics'].append(oldtopic)
-        
-    for topic in sorted(Record.keys()):
-        id_count = sum(Record[topic]['Labels'])
-        lt_count = len(Record[topic]['Labels'])-id_count
-        print('Topic:',topic,lt_count,id_count,id_count/len(Record[topic]['Labels']))
-        print('Old Topics:',Record[topic]['OldTopics'])
-        print('Expressions:',', '.join(Record[topic]['Exps']))
-        for k in Record[topic]['Keywords']:   print('Keywords:', k)
-        print('')
+#import os
+from collections import defaultdict
+import statistics
 
 def shortview(Data):
     data = Data.groupby(['Dominant_Topic','Labels','Old_Topic']).size()
     
-    #print(data)
     for dt in Data['Dominant_Topic'].unique():
         data = Data.loc[Data['Dominant_Topic']==dt]
         literal = data.groupby('Labels').size()[0]
@@ -53,116 +30,8 @@ def shortview(Data):
         size = idiom+literal
         no_topics = data['Old_Topic'].unique()
         print(dt,size,idiom/size,no_topics)
-
         
-    #size, ratio, number of topics
-    
-def perLabelTopicModeling(no_topics):
-    dataset = pickle.load(open("../Data/ID/vnics_dataset_full_ratio-split.pkl", "rb"), encoding='latin1')       
-
-    p_data = [p['sent'].replace(' &apos;','\'') for p in dataset["train_sample"] if p['lab_int']==1]
-    n_data = [p['sent'].replace(' &apos;','\'') for p in dataset["train_sample"] if p['lab_int']==0]
-    p_exps = [p['verb']+' '+p['noun'] for p in dataset["train_sample"] if p['lab_int']==1]
-    n_exps = [p['verb']+' '+p['noun'] for p in dataset["train_sample"] if p['lab_int']==0]
-    
-    TM = TopicModel()
-    
-    TM.train(p_data,no_topics)
-    p_topics = TM.topicModel(p_data,p_exps,[1]*len(p_data))
-    
-    TM.train(n_data,no_topics)
-    n_topics = TM.topicModel(n_data,n_exps,[0]*len(n_data))
-    
-    return p_topics,n_topics
-
-def perExpressionTopicModeling(no_topics):
-    Data,Labels = {},{}
-    dataset = pickle.load(open("../Data/ID/vnics_dataset_full_ratio-split.pkl", "rb"), encoding='latin1')       
-    data = [p['sent'].replace(' &apos;','\'') for p in dataset["train_sample"]+dataset["test_sample"]]
-    expressions = [p['verb']+' '+p['noun'] for p in dataset["train_sample"]+dataset["test_sample"]]   
-    labels = [p['lab_int'] for p in dataset["train_sample"]+dataset["test_sample"]]
-    
-    for sent,exp,label in zip(data, expressions, labels):
-        if exp not in Data: 
-            Data[exp]=[]
-            Labels[exp]=[]
-        Data[exp].append(sent)
-        Labels[exp].append(label)
-     
-    TM = TopicModel()
-
-    for exp in Data:
-        print(exp)
-        TM.train(Data[exp],4)
-        topics = TM.topicModel(Data[exp],[exp]*len(Data[exp]),Labels[exp])
-        view(topics)
-    
-    
-def trainTopicModel(n,num_topics,use_vnic):
-    files = os.listdir('../Data/BNC/ParsedTexts')
-    data = []
-    #TODO: list of para or sent?
-    if n==-1:   n = len(files)
-    for f in files[:n]: data = data+open('../Data/BNC/ParsedTexts/'+f,'r').readlines()
-        
-    if use_vnic:
-        '''read data from VNIC'''
-        dataset = pickle.load(open("../Data/ID/vnics_dataset_full_ratio-split.pkl", "rb"), encoding='latin1')       
-        data = data + [p['sent'].replace(' &apos;','\'') for p in dataset["train_sample"]+dataset["test_sample"]]
-    print('Training data size:', len(data))
-    TM = TopicModel()
-    TM.train(data,num_topics)
-    TM.save()
-    print('Trainig finished')
-    
-def predictTopic(merge):
-    '''read data as a list of sentences'''
-    dataset = pickle.load(open("../Data/ID/vnics_dataset_full_ratio-split.pkl", "rb"), encoding='latin1')       
-    
-    data = [p['sent'].replace(' &apos;','\'') for p in dataset["train_sample"]+dataset["test_sample"]]
-    labels = [p['lab_int'] for p in dataset["train_sample"]+dataset["test_sample"]]
-    expressions = [p['verb']+' '+p['noun'] for p in dataset["train_sample"]+dataset["test_sample"]]
-    
-    TM = TopicModel()
-    TM.load()
-    topics = TM.topicModel(data,expressions,labels)
-    if merge:   topics = merge(topics)
-
-    #with pd.option_context('display.max_rows', None, 'display.max_columns', None):    print(topics)
-    view(topics)
-    return topics
-        
-def idiomTest(merge):  
-    '''read data as a list of sentences'''
-    dataset = pickle.load(open("../Data/ID/vnics_dataset_full_ratio-split.pkl", "rb"), encoding='latin1')       
-    
-    data = [p['sent'].replace(' &apos;','\'') for p in dataset["train_sample"]+dataset["test_sample"]]
-    labels = [p['lab_int'] for p in dataset["train_sample"]+dataset["test_sample"]]
-    expressions = [p['verb']+' '+p['noun'] for p in dataset["train_sample"]+dataset["test_sample"]]
-    
-    TM = TopicModel()
-    TM.load()
-    topics = TM.topicModel(data,expressions,labels)
-    
-    if merge:   
-        M = Merger(m=12)
-        topics = M.Merge(topics)
-        
-    A = Analyser(5)
-    A.perTopicAnalysis(topics)        
-    
-    #compute_coherence_values(start=2, limit=100, step=1)
-    
-def BERTTopicAnalysis(min_topic_size):
-    dataset = pickle.load(open("../Data/ID/vnics_dataset_full_ratio-split.pkl", "rb"), encoding='latin1')       
-    
-    data = [p['sent'].replace(' &apos;','\'') for p in dataset["train_sample"]+dataset["test_sample"]]
-    labels = [p['lab_int'] for p in dataset["train_sample"]+dataset["test_sample"]]
-    expressions = [p['verb']+' '+p['noun'] for p in dataset["train_sample"]+dataset["test_sample"]]
-    
-    #topic_model = BERTopic(min_topic_size=8)
-    topic_model = BERTopic(min_topic_size=min_topic_size)
-    #topic_model = BERTopic()
+def BERTopicModel(data,expressions,labels,topic_model):
     topics,_ = topic_model.fit_transform(data)
     
     sent = pd.Series(data,name='Sent')
@@ -172,57 +41,124 @@ def BERTTopicAnalysis(min_topic_size):
     dt = pd.Series(topics,name='Dominant_Topic')
     
     Topics = pd.concat([dt,kw,sent,label,exp],axis=1)
-    print('Number of samples',len(Topics.index))
     
     '''Remove outliers'''
     Topics = Topics.loc[Topics['Dominant_Topic']!=-1]
-
-    print('Number of Topics:',len(Topics['Dominant_Topic'].unique()))
-    print('Number of samples after outlier removal',len(Topics.index))
     
-    lc = 100000
-    sc = 1
-    tc = 100
-    #tc = 1000/(len(Topics['Dominant_Topic'].unique())-m+1)
-    
-    M = Merger(lc=lc,sc=sc,tc=tc)
-    A = Analyser(5)
-    for m in range(5,21,5):
-        print('Number of topic groups after merging)',m)
+    return Topics
 
-        MergedTopics = M.Merge(Topics,m)
-        A.perTopicAnalysis(MergedTopics) 
-        print('Number of sentences after merging:',len(MergedTopics.index))    
-        #shortview(MergedTopics)
+def BERTTopicAnalysis(min_topic_size,m):
+    dataset = pickle.load(open("../Data/ID/vnics_dataset_full_ratio-split.pkl", "rb"), encoding='latin1')          
+    data = [p['sent'].replace(' &apos;','\'') for p in dataset["train_sample"]+dataset["test_sample"]]
+    labels = [p['lab_int'] for p in dataset["train_sample"]+dataset["test_sample"]]
+    expressions = [p['verb']+' '+p['noun'] for p in dataset["train_sample"]+dataset["test_sample"]]
+    print('Number of samples',len(data))
+    
+    merger = Merger(lc=100000,sc=1,tc=100)
+    topic_model = BERTopic(min_topic_size=min_topic_size)
         
-    
+    BERT11Analyser = Analyser(5,'BERT',11)
+    BERT10Analyser = Analyser(5,'BERT',10)
+    BERT9Analyser = Analyser(5,'BERT',9)
+    BERT8Analyser = Analyser(5,'BERT',8)
+    BERT7Analyser = Analyser(5,'BERT',7)
+    BERT6Analyser = Analyser(5,'BERT',6)
+    BERT5Analyser = Analyser(5,'BERT',5)
+    BERT4Analyser = Analyser(5,'BERT',4)
+    BERT3Analyser = Analyser(5,'BERT',3)
+    BERT2Analyser = Analyser(5,'BERT',2)
+    BERT1Analyser = Analyser(5,'BERT',1)
+    BERT0Analyser = Analyser(5,'BERT',0)
+    #GloveAnalyser = Analyser(5,'Glove')
+    #RandAnalyser = Analyser(5,'Rand')
+
+    TableBERT11 = defaultdict(list)
+    TableBERT10 = defaultdict(list)
+    TableBERT9 = defaultdict(list)
+    TableBERT8 = defaultdict(list)
+    TableBERT7 = defaultdict(list)
+    TableBERT6 = defaultdict(list)
+    TableBERT5 = defaultdict(list)
+    TableBERT4 = defaultdict(list)
+    TableBERT3 = defaultdict(list)
+    TableBERT2 = defaultdict(list)
+    TableBERT1 = defaultdict(list)
+    TableBERT0 = defaultdict(list)
+    #TableGlove = defaultdict(list)
+    #TableRand = defaultdict(list)
+    for _ in range(10):
+        Topics = BERTopicModel(data,expressions,labels,topic_model)
+        MergedTopics = merger.Merge(Topics,m)          
+       
+        for i,v in enumerate(BERT11Analyser.perTopicAnalysis(MergedTopics)): 
+            TableBERT11[i].append(v)
+        
+        for i,v in enumerate(BERT10Analyser.perTopicAnalysis(MergedTopics)): 
+            TableBERT10[i].append(v)
+            
+        for i,v in enumerate(BERT9Analyser.perTopicAnalysis(MergedTopics)): 
+            TableBERT9[i].append(v)
+           
+        for i,v in enumerate(BERT8Analyser.perTopicAnalysis(MergedTopics)): 
+            TableBERT8[i].append(v)
+        
+        for i,v in enumerate(BERT7Analyser.perTopicAnalysis(MergedTopics)): 
+            TableBERT7[i].append(v)
+            
+        for i,v in enumerate(BERT6Analyser.perTopicAnalysis(MergedTopics)): 
+            TableBERT6[i].append(v)
+           
+        for i,v in enumerate(BERT5Analyser.perTopicAnalysis(MergedTopics)): 
+            TableBERT5[i].append(v)
+            
+        for i,v in enumerate(BERT4Analyser.perTopicAnalysis(MergedTopics)): 
+            TableBERT4[i].append(v)
+            
+        for i,v in enumerate(BERT3Analyser.perTopicAnalysis(MergedTopics)): 
+            TableBERT3[i].append(v)            
+            
+        for i,v in enumerate(BERT2Analyser.perTopicAnalysis(MergedTopics)): 
+            TableBERT2[i].append(v)
+            
+        for i,v in enumerate(BERT1Analyser.perTopicAnalysis(MergedTopics)): 
+            TableBERT1[i].append(v)
+            
+        for i,v in enumerate(BERT0Analyser.perTopicAnalysis(MergedTopics)): 
+            TableBERT0[i].append(v)
+          
+        '''
+        for i,v in enumerate(GloveAnalyser.perTopicAnalysis(MergedTopics)): 
+            TableGlove[i].append(v)
+                
+        for i,v in enumerate(RandAnalyser.perTopicAnalysis(MergedTopics)): 
+            TableRand[i].append(v)
+        '''
+                    
+    print('BERT11:',' '.join([str(statistics.mean(TableBERT11[v])) for v in TableBERT11]))
+    print('BERT10:',' '.join([str(statistics.mean(TableBERT10[v])) for v in TableBERT10]))
+    print('BERT9:',' '.join([str(statistics.mean(TableBERT9[v])) for v in TableBERT9]))
+    print('BERT8:',' '.join([str(statistics.mean(TableBERT8[v])) for v in TableBERT8]))
+    print('BERT7:',' '.join([str(statistics.mean(TableBERT7[v])) for v in TableBERT7]))
+    print('BERT6:',' '.join([str(statistics.mean(TableBERT6[v])) for v in TableBERT6]))
+    print('BERT5:',' '.join([str(statistics.mean(TableBERT5[v])) for v in TableBERT5]))
+    print('BERT4:',' '.join([str(statistics.mean(TableBERT4[v])) for v in TableBERT4]))
+    print('BERT3:',' '.join([str(statistics.mean(TableBERT3[v])) for v in TableBERT3]))
+    print('BERT2:',' '.join([str(statistics.mean(TableBERT2[v])) for v in TableBERT2]))
+    print('BERT1:',' '.join([str(statistics.mean(TableBERT1[v])) for v in TableBERT1]))
+    print('BERT0:',' '.join([str(statistics.mean(TableBERT0[v])) for v in TableBERT0]))
+    #print(' '.join([str(statistics.mean(TableGlove[v])) for v in TableGlove]))
+    #print(' '.join([str(statistics.mean(TableRand[v])) for v in TableRand]))
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    
-    #parser.add_argument('--comp_op', type=str, default='add', help='name of the compositional operator (add/linear/holo)')
-    #parser.add_argument('--lr', type=float, default=0.25, help='Learning rate')
-    parser.add_argument('--n', type=int, default=1, help='number of BNC files for training')
-    parser.add_argument('--num_topics', type=int, default=10, help='number of topics')
-
-    parser.add_argument('--train', action='store_true',help='Train topic model')
-    parser.add_argument('--test', action='store_true',help='Test topic model')
-    parser.add_argument('--idiomtest', action='store_true',help='Test topic model')
-
-    parser.add_argument('--use_vnic', action='store_true',help='Use VNIC data along with BNC for training')
-    parser.add_argument('--bertopic', action='store_true',help='Test topic model')
-    parser.add_argument('--merge', action='store_true',help='Test topic model')
-    parser.add_argument('--m', type=int, default=10, help='number of topics')
+    parser.add_argument('--m', type=int, default=None, help='number of topics')
     parser.add_argument('--min_topic_size', type=int, default=5, help='minimum size of topic')
-
- 
+     
     args=parser.parse_args() 
-    if args.train:  trainTopicModel(args.n, args.num_topics, args.use_vnic)
-    if args.test:   predictTopic(args.merge)
-    if args.idiomtest:  idiomTest(args.merge)
-    if args.bertopic:   BERTTopicAnalysis(args.min_topic_size)
+    
+    BERTTopicAnalysis(args.min_topic_size,args.m)
 
 
 #TM = TopicModel()
-#TM.train(['What is your name? my name is Vasu.What is topic modelling?I am fine.How do you do?','This is a sample sentence.'],2)
 
 
