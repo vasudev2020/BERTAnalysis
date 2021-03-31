@@ -74,13 +74,15 @@ class TopicModel:
         
         #self.lda_model = gensim.models.LdaMulticore(corpus=corpus, num_topics=num_topics, id2word=self.id2word)
         #self.lda_model = gensim.models.LdaMulticore(corpus=corpus, num_topics=num_topics, id2word=self.id2word,alpha=[0.000001]*num_topics)
-        self.lda_model = gensim.models.LdaMulticore(corpus=corpus, num_topics=num_topics, id2word=self.id2word,alpha='asymmetric')
+        #self.lda_model = gensim.models.LdaMulticore(corpus=corpus, num_topics=num_topics, id2word=self.id2word,alpha='asymmetric')
+        self.lsa_model = gensim.models.LsiModel(corpus=corpus, num_topics=num_topics, id2word=self.id2word)
         
         #lda_model = gensim.models.ldamodel.LdaModel(corpus=corpus, num_topics=num_topics, id2word=id2word)
         #for topic_num in range(num_topics): print(topic_num, lda_model.show_topic(topic_num))
         
     def save(self):
-        self.lda_model.save(path+'lda.model')
+        #self.lda_model.save(path+'lda.model')
+        self.lsi_model.save(path+'lsi.model')
         self.tfidfmodel.save(path+'tfidf.model')
         self.bigram_mod.save(path+'bigram.model')
         self.id2word.save(path+'id2word.dat')
@@ -89,8 +91,8 @@ class TopicModel:
         self.id2word = corpora.Dictionary.load(path+'id2word.dat')
         self.bigram_mod = gensim.models.phrases.Phraser.load(path+'bigram.model')
         self.tfidfmodel = gensim.models.TfidfModel.load(path+'tfidf.model')
-        self.lda_model = gensim.models.LdaMulticore.load(path+'lda.model')
-        
+        #self.lda_model = gensim.models.LdaMulticore.load(path+'lda.model')
+        self.lsa_model = gensim.models.LsiModel.load(path+'lsi.model')
     def topicModel(self,data,expressions,labels):
         
         #self.train(data,num_topics)
@@ -110,12 +112,14 @@ class TopicModel:
 
 
         Topics = pd.DataFrame()
-        for row in self.lda_model[corpus]:
+        #for row in self.lda_model[corpus]:
+        for row in self.lsi_model[corpus]:
             row = sorted(row, key=lambda x: (x[1]), reverse=True)  
             #print(row)
             #continue
             topic_num, prop_topic = row[0] # Get the Dominant topic, Perc Contribution and Keywords for each document
-            wp = self.lda_model.show_topic(topic_num)
+            #wp = self.lda_model.show_topic(topic_num)
+            wp = self.lsi_model.show_topic(topic_num)
             topic_keywords = ", ".join([word for word, prop in wp])
             Topics=Topics.append(pd.Series([int(topic_num), round(prop_topic,4), topic_keywords]), ignore_index=True)
     

@@ -14,6 +14,7 @@ import argparse
 from collections import defaultdict
 import statistics
 
+from TopicModel import TopicModel
 from bertopic import BERTopic
 
 from Analyser import Analyser
@@ -21,8 +22,12 @@ from Merger import Merger
 
 count_vectorizer = CountVectorizer(stop_words='english')
 
-def TopicModel(data,exps,labels,n_topics):
+def LSI(data,exps,labels,n_topics):
 
+    TM = TopicModel()
+    TM.train(data,n_topics)
+    Topics = TM.topicModel(data,exps,labels)
+    '''
     count_data = count_vectorizer.fit_transform(data)
     
     lda = LDA(n_components=n_topics)
@@ -37,6 +42,7 @@ def TopicModel(data,exps,labels,n_topics):
     dt = pd.Series(out,name='Dominant_Topic')
     
     Topics = pd.concat([dt,sent,label,exp],axis=1)
+    '''
     return Topics
 
 def BERTopicModel(data,expressions,labels,topic_model):
@@ -104,10 +110,10 @@ def BERTTopicAnalysis():
     
 
     #for mp in range(10,51,5):
-    for mp in range(5,11):
-        topic_model = BERTopic(min_topic_size=mp)
-        Topics = BERTopicModel(data,expressions,labels,topic_model)
-        #Topics = TopicModel(data,expressions,labels,mp)
+    for mp in range(5,11,5):
+        #topic_model = BERTopic(min_topic_size=mp)
+        #Topics = BERTopicModel(data,expressions,labels,topic_model)
+        Topics = LSI(data,expressions,labels,mp)
 
         MergedTopics = merger.Merge(Topics,m=None) 
         
@@ -147,19 +153,19 @@ def BERTTopicAnalysis():
     for m in TableBERT8:
         print(m,' '.join([str(statistics.mean(TableBERT8[m][v])) for v in TableBERT8[m]]))
         
-        print('BERT7')
+    print('BERT7')
     for m in TableBERT7:
         print(m,' '.join([str(statistics.mean(TableBERT7[m][v])) for v in TableBERT7[m]]))
         
-        print('BERT6')
+    print('BERT6')
     for m in TableBERT6:
         print(m,' '.join([str(statistics.mean(TableBERT6[m][v])) for v in TableBERT6[m]]))
         
-        print('BERT5')
+    print('BERT5')
     for m in TableBERT5:
         print(m,' '.join([str(statistics.mean(TableBERT5[m][v])) for v in TableBERT5[m]]))
         
-        print('BERT4')
+    print('BERT4')
     for m in TableBERT4:
         print(m,' '.join([str(statistics.mean(TableBERT4[m][v])) for v in TableBERT4[m]]))
         
