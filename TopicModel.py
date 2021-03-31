@@ -75,7 +75,7 @@ class TopicModel:
         #self.lda_model = gensim.models.LdaMulticore(corpus=corpus, num_topics=num_topics, id2word=self.id2word)
         #self.lda_model = gensim.models.LdaMulticore(corpus=corpus, num_topics=num_topics, id2word=self.id2word,alpha=[0.000001]*num_topics)
         #self.lda_model = gensim.models.LdaMulticore(corpus=corpus, num_topics=num_topics, id2word=self.id2word,alpha='asymmetric')
-        self.lsa_model = gensim.models.LsiModel(corpus=corpus, num_topics=num_topics, id2word=self.id2word)
+        self.lsi_model = gensim.models.LsiModel(corpus=corpus, num_topics=num_topics, id2word=self.id2word)
         
         #lda_model = gensim.models.ldamodel.LdaModel(corpus=corpus, num_topics=num_topics, id2word=id2word)
         #for topic_num in range(num_topics): print(topic_num, lda_model.show_topic(topic_num))
@@ -92,7 +92,7 @@ class TopicModel:
         self.bigram_mod = gensim.models.phrases.Phraser.load(path+'bigram.model')
         self.tfidfmodel = gensim.models.TfidfModel.load(path+'tfidf.model')
         #self.lda_model = gensim.models.LdaMulticore.load(path+'lda.model')
-        self.lsa_model = gensim.models.LsiModel.load(path+'lsi.model')
+        self.lsi_model = gensim.models.LsiModel.load(path+'lsi.model')
     def topicModel(self,data,expressions,labels):
         
         #self.train(data,num_topics)

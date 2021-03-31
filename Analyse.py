@@ -5,22 +5,21 @@ Created on Tue Mar 30 15:46:11 2021
 
 @author: vasu
 """
-
-from sklearn.feature_extraction.text import CountVectorizer
-from sklearn.decomposition import LatentDirichletAllocation as LDA
 import pandas as pd
 import pickle
 import argparse
 from collections import defaultdict
 import statistics
 
+#from sklearn.feature_extraction.text import CountVectorizer
+#from sklearn.decomposition import LatentDirichletAllocation as LDA
+#count_vectorizer = CountVectorizer(stop_words='english')
+
 from TopicModel import TopicModel
-from bertopic import BERTopic
+#from bertopic import BERTopic
 
 from Analyser import Analyser
 from Merger import Merger
-
-count_vectorizer = CountVectorizer(stop_words='english')
 
 def LSI(data,exps,labels,n_topics):
 
@@ -62,7 +61,7 @@ def BERTopicModel(data,expressions,labels,topic_model):
     return Topics
 
     
-def BERTTopicAnalysis():
+def BERTTopicAnalysis(mstart,mstop,mstep):
     dataset = pickle.load(open("../Data/ID/vnics_dataset_full_ratio-split.pkl", "rb"), encoding='latin1')          
     data = [p['sent'].replace(' &apos;','\'') for p in dataset["train_sample"]+dataset["test_sample"]]
     labels = [p['lab_int'] for p in dataset["train_sample"]+dataset["test_sample"]]
@@ -70,14 +69,7 @@ def BERTTopicAnalysis():
     print('Number of samples',len(data))
     
     merger = Merger(lc=100000,sc=1,tc=100)
-        
-    #BERT11Analyser = Analyser(5,'BERT',11)
-    #BERT8Analyser = Analyser(5,'BERT',8)
-    #BERT0Analyser = Analyser(5,'BERT',0)
-    #GloveAnalyser = Analyser(5,'Glove')
-
-    #TableBERT11,TableBERT8,TableBERT0,TableGlove = {},{},{},{}
-    #defaultdict(list)
+            
     TableBERT11 = defaultdict(lambda: defaultdict(list))
     TableBERT10 = defaultdict(lambda: defaultdict(list))
     TableBERT9 = defaultdict(lambda: defaultdict(list))
@@ -94,6 +86,7 @@ def BERTTopicAnalysis():
     TableRand = defaultdict(lambda: defaultdict(list))
 
     BERT11Analyser = Analyser(5,'BERT',11)
+    '''
     BERT10Analyser = Analyser(5,'BERT',10)
     BERT9Analyser = Analyser(5,'BERT',9)
     BERT8Analyser = Analyser(5,'BERT',8)
@@ -107,10 +100,11 @@ def BERTTopicAnalysis():
     BERT0Analyser = Analyser(5,'BERT',0)
     GloveAnalyser = Analyser(5,'Glove')
     RandAnalyser = Analyser(5,'Rand')
-    
+    '''
+        
 
     #for mp in range(10,51,5):
-    for mp in range(5,11,5):
+    for mp in range(mstart,mstop,mstep):
         #topic_model = BERTopic(min_topic_size=mp)
         #Topics = BERTopicModel(data,expressions,labels,topic_model)
         Topics = LSI(data,expressions,labels,mp)
@@ -119,6 +113,7 @@ def BERTTopicAnalysis():
         
         m = len(Topics['Dominant_Topic'].unique())
         for i,v in enumerate(BERT11Analyser.perTopicAnalysis(MergedTopics)): TableBERT11[m][i].append(v)
+        '''
         for i,v in enumerate(BERT10Analyser.perTopicAnalysis(MergedTopics)): TableBERT10[m][i].append(v)
         for i,v in enumerate(BERT9Analyser.perTopicAnalysis(MergedTopics)): TableBERT9[m][i].append(v)
         for i,v in enumerate(BERT8Analyser.perTopicAnalysis(MergedTopics)): TableBERT8[m][i].append(v)
@@ -132,14 +127,12 @@ def BERTTopicAnalysis():
         for i,v in enumerate(BERT0Analyser.perTopicAnalysis(MergedTopics)): TableBERT0[m][i].append(v)
         for i,v in enumerate(GloveAnalyser.perTopicAnalysis(MergedTopics)): TableGlove[m][i].append(v)
         for i,v in enumerate(RandAnalyser.perTopicAnalysis(MergedTopics)): TableRand[m][i].append(v)
-
-        #TableBERT8[len(Topics['Dominant_Topic'].unique())]=BERT8Analyser.perTopicAnalysis(MergedTopics)
-        #TableBERT0[len(Topics['Dominant_Topic'].unique())]=BERT0Analyser.perTopicAnalysis(MergedTopics)
-        #TableGlove[len(Topics['Dominant_Topic'].unique())]=GloveAnalyser.perTopicAnalysis(MergedTopics)
+        '''
      
     print('BERT11')
     for m in TableBERT11:
         print(m,' '.join([str(statistics.mean(TableBERT11[m][v])) for v in TableBERT11[m]]))
+        
         
     print('BERT10')
     for m in TableBERT10:
@@ -192,46 +185,14 @@ def BERTTopicAnalysis():
     print('Rand')
     for m in TableRand:
         print(m,' '.join([str(statistics.mean(TableRand[m][v])) for v in TableRand[m]]))
-    '''
-    print('BERT11')
-    for m in TableBERT11:
-        print(m,' '.join([str(round(v,4)) for v in TableBERT11[m]]))
-        
-    print('BERT8')
-    for m in TableBERT8:
-        print(m,' '.join([str(round(v,4)) for v in TableBERT8[m]]))
-        
-    print('BERT0')
-    for m in TableBERT0:
-        print(m,' '.join([str(round(v,4)) for v in TableBERT0[m]]))
-        
-    print('Glove')
-    for m in TableGlove:
-        print(m,' '.join([str(round(v,4)) for v in TableGlove[m]]))
-    '''
             
      
-
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--m', type=int, default=None, help='number of topics')
-    parser.add_argument('--min_topic_size', type=int, default=5, help='minimum size of topic')
+    parser.add_argument('--mstart', type=int, default=5, help='starting number of topics')
+    parser.add_argument('--mstop', type=int, default=51, help='stoping number of topics')
+    parser.add_argument('--mstep', type=int, default=5, help='stepping number of topics increment')
      
     args=parser.parse_args() 
     
-    BERTTopicAnalysis()
-
-#BERTTopicAnalysis()
-#TM = TopicModel()
-
-
-'''
-
-sents = ['cat dog and mouse','mouse cat and cow','cash money property']
-exps = ['exp1','exp2','exp3']
-labels = [1,0,1]
-
-T = TopicModel(sents,exps,labels,2)
-
-print(T)
-'''
+    BERTTopicAnalysis(args.mstart,args.mstop,args.mstep)
