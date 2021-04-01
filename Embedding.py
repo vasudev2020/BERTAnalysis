@@ -36,6 +36,7 @@ class Embedding:
             return emb
         if self.emb=='BERT':
             tt = self.bt.tokenize("[CLS] "+sent+" [SEP]")
+            if len(tt)>512: tt=tt[:512]
             it = self.bt.convert_tokens_to_ids(tt)
 
             with torch.no_grad():   encoded_layers, _ = self.bert(torch.tensor([it]), torch.tensor([[1]*len(tt)]))

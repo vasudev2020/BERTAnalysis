@@ -1,164 +1,110 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Thu Feb  4 14:19:49 2021
+Created on Tue Mar 30 15:46:11 2021
 
 @author: vasu
 """
-
-
-import pickle
 import pandas as pd
+import pickle
 import argparse
+from collections import defaultdict
+from statistics import mean
+from scipy import stats
 
-from bertopic import BERTopic
+import json
 
-#from TopicModel import TopicModel
+
+from TopicModel import TopicModel
+
 from Analyser import Analyser
 from Merger import Merger
-#import os
-from collections import defaultdict
-import statistics
 
-def shortview(Data):
-    data = Data.groupby(['Dominant_Topic','Labels','Old_Topic']).size()
-    
-    for dt in Data['Dominant_Topic'].unique():
-        data = Data.loc[Data['Dominant_Topic']==dt]
-        literal = data.groupby('Labels').size()[0]
-        idiom = data.groupby('Labels').size()[1]
-        size = idiom+literal
-        no_topics = data['Old_Topic'].unique()
-        print(dt,size,idiom/size,no_topics)
-        
-def BERTopicModel(data,expressions,labels,topic_model):
-    topics,_ = topic_model.fit_transform(data)
-    
-    sent = pd.Series(data,name='Sent')
-    exp = pd.Series(expressions,name='Expressions')
-    label = pd.Series(labels,name='Labels')
-    kw = pd.Series([','.join([k for k,_ in topic_model.get_topic(t)]) for t in topics],name='Keywords')
-    dt = pd.Series(topics,name='Dominant_Topic')
-    
-    Topics = pd.concat([dt,kw,sent,label,exp],axis=1)
-    
-    '''Remove outliers'''
-    Topics = Topics.loc[Topics['Dominant_Topic']!=-1]
-    
-    return Topics
-
-def BERTTopicAnalysis(min_topic_size,m):
+def LoadVNC(size):
     dataset = pickle.load(open("../Data/ID/vnics_dataset_full_ratio-split.pkl", "rb"), encoding='latin1')          
     data = [p['sent'].replace(' &apos;','\'') for p in dataset["train_sample"]+dataset["test_sample"]]
     labels = [p['lab_int'] for p in dataset["train_sample"]+dataset["test_sample"]]
     expressions = [p['verb']+' '+p['noun'] for p in dataset["train_sample"]+dataset["test_sample"]]
-    print('Number of samples',len(data))
+    print('Number of samples',len(data)) 
+    return data,labels,expressions 
+
+def LoadBShift(size):
+    with open('../Data/bigram_shift.txt','r') as fp:
+        dataset = fp.readlines()
+    size = len(dataset) if size is None else size
+    dataset=dataset[:size]
+    print('Number of samples',len(dataset))
+    dataset = [d.strip().split('\t') for d in dataset]
+    exps,labels,data = zip(*dataset)
+    
+    labels = [0 if l == 'O' else 1 for l in labels]
+    return list(data),list(labels),list(exps)
+
+def LoadJokes(size):
+    with open('../Data/reddit_jokes.json','r') as fp:
+        dataset = json.load(fp)
+    size = len(dataset) if size is None else size
+    dataset = dataset[:size]
+    print('Number of samples',len(dataset))
+    data = [d['title']+d['body'] for d in dataset]
+    labels = [d['score'] for d in dataset]
+    labels = [1 if lb > 0 else 0 for lb in labels]
+    exps = [d['title'] for d in dataset]
+    return data,labels,exps
+
+def Print(Table,name,task):
+    with open(task+'-'+name+'.json','w') as fp:
+        json.dump(Table,fp)
+    _,seen,unseen,diff = zip(*Table)
+    t1,p1 = list(stats.ttest_rel(seen,unseen))
+    t2,p2 = list(stats.ttest_rel(diff,[0]*len(diff)))
+    
+    print(task,name,mean(seen),mean(unseen),mean(diff),t1,p1,t2,p2)       
+    
+def BERTTopicAnalysis(task,mstart,mstop,mstep,size,alllayers,glove,randemb):
+    if task=='idiom':   data,labels,expressions = LoadVNC(size)
+    #data,labels,expressions = LoadBShift(size)
+    #data,labels,expressions = LoadJokes(size)
     
     merger = Merger(lc=100000,sc=1,tc=100)
-    topic_model = BERTopic(min_topic_size=min_topic_size)
+    TM = TopicModel()
+    if alllayers:   Analysers = [Analyser(5,'BERT',i) for i in range(12)]
+    else: Analysers = [Analyser(5,'BERT',11),Analyser(5,'BERT',8),Analyser(5,'BERT',0)]
+    if glove:   Analysers.append(Analyser(5,'Glove'))
+    if randemb: Analysers.append(Analyser(5,'Rand'))
+    
+    Tables = [[] for _ in Analysers]
+    TopicScores = [[] for _ in Analysers]
+    
+    for mp in range(mstart,mstop,mstep):       
+        TM.train(data,mp)
+        Topics = TM.topicModel(data,expressions,labels)
+        Topics = Topics.loc[Topics['Dominant_Topic']!=-1]
         
-    BERT11Analyser = Analyser(5,'BERT',11)
-    BERT10Analyser = Analyser(5,'BERT',10)
-    BERT9Analyser = Analyser(5,'BERT',9)
-    BERT8Analyser = Analyser(5,'BERT',8)
-    BERT7Analyser = Analyser(5,'BERT',7)
-    BERT6Analyser = Analyser(5,'BERT',6)
-    BERT5Analyser = Analyser(5,'BERT',5)
-    BERT4Analyser = Analyser(5,'BERT',4)
-    BERT3Analyser = Analyser(5,'BERT',3)
-    BERT2Analyser = Analyser(5,'BERT',2)
-    BERT1Analyser = Analyser(5,'BERT',1)
-    BERT0Analyser = Analyser(5,'BERT',0)
-    #GloveAnalyser = Analyser(5,'Glove')
-    #RandAnalyser = Analyser(5,'Rand')
-
-    TableBERT11 = defaultdict(list)
-    TableBERT10 = defaultdict(list)
-    TableBERT9 = defaultdict(list)
-    TableBERT8 = defaultdict(list)
-    TableBERT7 = defaultdict(list)
-    TableBERT6 = defaultdict(list)
-    TableBERT5 = defaultdict(list)
-    TableBERT4 = defaultdict(list)
-    TableBERT3 = defaultdict(list)
-    TableBERT2 = defaultdict(list)
-    TableBERT1 = defaultdict(list)
-    TableBERT0 = defaultdict(list)
-    #TableGlove = defaultdict(list)
-    #TableRand = defaultdict(list)
-    for _ in range(10):
-        Topics = BERTopicModel(data,expressions,labels,topic_model)
-        MergedTopics = merger.Merge(Topics,m)          
-       
-        for i,v in enumerate(BERT11Analyser.perTopicAnalysis(MergedTopics)): 
-            TableBERT11[i].append(v)
+        MergedTopics = merger.Merge(Topics,m=None) 
         
-        for i,v in enumerate(BERT10Analyser.perTopicAnalysis(MergedTopics)): 
-            TableBERT10[i].append(v)
-            
-        for i,v in enumerate(BERT9Analyser.perTopicAnalysis(MergedTopics)): 
-            TableBERT9[i].append(v)
-           
-        for i,v in enumerate(BERT8Analyser.perTopicAnalysis(MergedTopics)): 
-            TableBERT8[i].append(v)
+        for i,A in enumerate(Analysers):
+            scores,mbs,ci = A.perTopicAnalysis(MergedTopics)
+            Tables[i]+=scores
+            TopicScores[i].append([mbs,ci])
+    for T,A in zip(Tables,Analysers):    Print(T,A.getName(),task) 
+    print(TopicScores)
         
-        for i,v in enumerate(BERT7Analyser.perTopicAnalysis(MergedTopics)): 
-            TableBERT7[i].append(v)
-            
-        for i,v in enumerate(BERT6Analyser.perTopicAnalysis(MergedTopics)): 
-            TableBERT6[i].append(v)
-           
-        for i,v in enumerate(BERT5Analyser.perTopicAnalysis(MergedTopics)): 
-            TableBERT5[i].append(v)
-            
-        for i,v in enumerate(BERT4Analyser.perTopicAnalysis(MergedTopics)): 
-            TableBERT4[i].append(v)
-            
-        for i,v in enumerate(BERT3Analyser.perTopicAnalysis(MergedTopics)): 
-            TableBERT3[i].append(v)            
-            
-        for i,v in enumerate(BERT2Analyser.perTopicAnalysis(MergedTopics)): 
-            TableBERT2[i].append(v)
-            
-        for i,v in enumerate(BERT1Analyser.perTopicAnalysis(MergedTopics)): 
-            TableBERT1[i].append(v)
-            
-        for i,v in enumerate(BERT0Analyser.perTopicAnalysis(MergedTopics)): 
-            TableBERT0[i].append(v)
-          
-        '''
-        for i,v in enumerate(GloveAnalyser.perTopicAnalysis(MergedTopics)): 
-            TableGlove[i].append(v)
-                
-        for i,v in enumerate(RandAnalyser.perTopicAnalysis(MergedTopics)): 
-            TableRand[i].append(v)
-        '''
-                    
-    print('BERT11:',' '.join([str(statistics.mean(TableBERT11[v])) for v in TableBERT11]))
-    print('BERT10:',' '.join([str(statistics.mean(TableBERT10[v])) for v in TableBERT10]))
-    print('BERT9:',' '.join([str(statistics.mean(TableBERT9[v])) for v in TableBERT9]))
-    print('BERT8:',' '.join([str(statistics.mean(TableBERT8[v])) for v in TableBERT8]))
-    print('BERT7:',' '.join([str(statistics.mean(TableBERT7[v])) for v in TableBERT7]))
-    print('BERT6:',' '.join([str(statistics.mean(TableBERT6[v])) for v in TableBERT6]))
-    print('BERT5:',' '.join([str(statistics.mean(TableBERT5[v])) for v in TableBERT5]))
-    print('BERT4:',' '.join([str(statistics.mean(TableBERT4[v])) for v in TableBERT4]))
-    print('BERT3:',' '.join([str(statistics.mean(TableBERT3[v])) for v in TableBERT3]))
-    print('BERT2:',' '.join([str(statistics.mean(TableBERT2[v])) for v in TableBERT2]))
-    print('BERT1:',' '.join([str(statistics.mean(TableBERT1[v])) for v in TableBERT1]))
-    print('BERT0:',' '.join([str(statistics.mean(TableBERT0[v])) for v in TableBERT0]))
-    #print(' '.join([str(statistics.mean(TableGlove[v])) for v in TableGlove]))
-    #print(' '.join([str(statistics.mean(TableRand[v])) for v in TableRand]))
-
+     
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--m', type=int, default=None, help='number of topics')
-    parser.add_argument('--min_topic_size', type=int, default=5, help='minimum size of topic')
+    parser.add_argument('--task', type=str, default='idiom', help='task name')
+    parser.add_argument('--mstart', type=int, default=5, help='starting number of topics')
+    parser.add_argument('--mstop', type=int, default=51, help='stoping number of topics')
+    parser.add_argument('--mstep', type=int, default=5, help='stepping number of topics increment')
+    parser.add_argument('--size', type=int, default=None, help='maximum data size limit. None for no limit')
+    parser.add_argument('--alllayers', action='store_true')
+    parser.add_argument('--glove', action='store_true')
+    parser.add_argument('--randemb', action='store_true')
+    
      
     args=parser.parse_args() 
     
-    BERTTopicAnalysis(args.min_topic_size,args.m)
-
-
-#TM = TopicModel()
-
-
+    BERTTopicAnalysis(args.task,args.mstart,args.mstop,args.mstep,args.size,args.alllayers,args.glove,args.randemb)
+    #ComputeCoherance(args.mstart,args.mstop,args.mstep)
+    #LoadBShift()
