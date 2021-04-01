@@ -63,7 +63,7 @@ def Print(Table,name,task):
     
 def BERTTopicAnalysis(task,mstart,mstop,mstep,size,alllayers,glove,randemb):
     if task=='idiom':   data,labels,expressions = LoadVNC(size)
-    #data,labels,expressions = LoadBShift(size)
+    if task=='bshift':   data,labels,expressions = LoadBShift(size)
     #data,labels,expressions = LoadJokes(size)
     
     merger = Merger(lc=100000,sc=1,tc=100)
