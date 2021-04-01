@@ -10,6 +10,7 @@ import pickle
 import argparse
 from collections import defaultdict
 import statistics
+import json
 
 #from sklearn.feature_extraction.text import CountVectorizer
 #from sklearn.decomposition import LatentDirichletAllocation as LDA
@@ -26,6 +27,7 @@ def LSI(data,exps,labels,n_topics):
     TM = TopicModel()
     TM.train(data,n_topics)
     Topics = TM.topicModel(data,exps,labels)
+    
     '''
     count_data = count_vectorizer.fit_transform(data)
     
@@ -60,13 +62,17 @@ def BERTopicModel(data,expressions,labels,topic_model):
     
     return Topics
 
-    
-def BERTTopicAnalysis(mstart,mstop,mstep):
+def ComputeCoherance(mstart,mstop,mstep):
     dataset = pickle.load(open("../Data/ID/vnics_dataset_full_ratio-split.pkl", "rb"), encoding='latin1')          
     data = [p['sent'].replace(' &apos;','\'') for p in dataset["train_sample"]+dataset["test_sample"]]
-    labels = [p['lab_int'] for p in dataset["train_sample"]+dataset["test_sample"]]
-    expressions = [p['verb']+' '+p['noun'] for p in dataset["train_sample"]+dataset["test_sample"]]
-    print('Number of samples',len(data))
+
+    TM = TopicModel()
+    _,cs = TM.compute_coherence_values(data,mstart,mstop,mstep)
+    print(cs)
+    
+def BERTTopicAnalysis(mstart,mstop,mstep,size):
+    #data,labels,expressions = LoadVNC(size)
+    data,labels,expressions = LoadBShift(size)
     
     merger = Merger(lc=100000,sc=1,tc=100)
             
@@ -85,7 +91,8 @@ def BERTTopicAnalysis(mstart,mstop,mstep):
     TableGlove = defaultdict(lambda: defaultdict(list))
     TableRand = defaultdict(lambda: defaultdict(list))
 
-    BERT11Analyser = Analyser(5,'BERT',11)    
+    BERT11Analyser = Analyser(5,'BERT',11)   
+    
     BERT10Analyser = Analyser(5,'BERT',10)
     BERT9Analyser = Analyser(5,'BERT',9)
     BERT8Analyser = Analyser(5,'BERT',8)
@@ -100,16 +107,23 @@ def BERTTopicAnalysis(mstart,mstop,mstep):
     GloveAnalyser = Analyser(5,'Glove')
     RandAnalyser = Analyser(5,'Rand')
     
+    
+    TM = TopicModel()
     #for mp in range(10,51,5):
     for mp in range(mstart,mstop,mstep):
         #topic_model = BERTopic(min_topic_size=mp)
         #Topics = BERTopicModel(data,expressions,labels,topic_model)
-        Topics = LSI(data,expressions,labels,mp)
-
+        #Topics = LSI(data,expressions,labels,mp)
+        
+        TM.train(data,mp)
+        Topics = TM.topicModel(data,expressions,labels)
+        Topics = Topics.loc[Topics['Dominant_Topic']!=-1]
+        
         MergedTopics = merger.Merge(Topics,m=None) 
         
         m = len(Topics['Dominant_Topic'].unique())
         for i,v in enumerate(BERT11Analyser.perTopicAnalysis(MergedTopics)): TableBERT11[m][i].append(v)        
+        
         for i,v in enumerate(BERT10Analyser.perTopicAnalysis(MergedTopics)): TableBERT10[m][i].append(v)
         for i,v in enumerate(BERT9Analyser.perTopicAnalysis(MergedTopics)): TableBERT9[m][i].append(v)
         for i,v in enumerate(BERT8Analyser.perTopicAnalysis(MergedTopics)): TableBERT8[m][i].append(v)
@@ -180,14 +194,49 @@ def BERTTopicAnalysis(mstart,mstop,mstep):
     print('Rand')
     for m in TableRand:
         print(m,' '.join([str(statistics.mean(TableRand[m][v])) for v in TableRand[m]]))
-            
+
+def LoadVNC(size):
+    dataset = pickle.load(open("../Data/ID/vnics_dataset_full_ratio-split.pkl", "rb"), encoding='latin1')          
+    data = [p['sent'].replace(' &apos;','\'') for p in dataset["train_sample"]+dataset["test_sample"]]
+    labels = [p['lab_int'] for p in dataset["train_sample"]+dataset["test_sample"]]
+    expressions = [p['verb']+' '+p['noun'] for p in dataset["train_sample"]+dataset["test_sample"]]
+    print('Number of samples',len(data)) 
+    return data,labels,expressions 
+
+def LoadBShift(size):
+    with open('../Data/bigram_shift.txt','r') as fp:
+        dataset = fp.readlines()
+    size = len(dataset) if size is None else size
+    dataset=dataset[:size]
+    print('Number of samples',len(dataset))
+    dataset = [d.strip().split('\t') for d in dataset]
+    exps,labels,data = zip(*dataset)
+    
+    labels = [0 if l == 'O' else 1 for l in labels]
+    return list(data),list(labels),list(exps)
+
+def LoadJokes(size):
+    with open('../Data/reddit_jokes.json','r') as fp:
+        dataset = json.load(fp)
+    size = len(dataset) if size is None else size
+    dataset = dataset[:size]
+    data = [d['title']+d['body'] for d in dataset]
+    labels = [d['score'] for d in dataset]
+    exps = [d['title'] for d in dataset]
+    
+    return data,labels,exps
+        
+        
      
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--mstart', type=int, default=5, help='starting number of topics')
     parser.add_argument('--mstop', type=int, default=51, help='stoping number of topics')
     parser.add_argument('--mstep', type=int, default=5, help='stepping number of topics increment')
+    parser.add_argument('--size', type=int, default=None, help='maximum data size limit. None for no limit')
      
     args=parser.parse_args() 
     
-    BERTTopicAnalysis(args.mstart,args.mstop,args.mstep)
+    BERTTopicAnalysis(args.mstart,args.mstop,args.mstep,args.size)
+    #ComputeCoherance(args.mstart,args.mstop,args.mstep)
+    #LoadBShift()
