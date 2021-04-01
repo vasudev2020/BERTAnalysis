@@ -115,9 +115,9 @@ class TopicModel:
         #for row in self.lda_model[corpus]:
         for row in self.lsi_model[corpus]:
             row = sorted(row, key=lambda x: (x[1]), reverse=True)  
-            #print(row)
+            if len(row)==0: topic_num, prop_topic = -1,0 
             #continue
-            topic_num, prop_topic = row[0] # Get the Dominant topic, Perc Contribution and Keywords for each document
+            else:   topic_num, prop_topic = row[0] # Get the Dominant topic, Perc Contribution and Keywords for each document
             #wp = self.lda_model.show_topic(topic_num)
             wp = self.lsi_model.show_topic(topic_num)
             topic_keywords = ", ".join([word for word, prop in wp])
@@ -135,7 +135,7 @@ class TopicModel:
         return
     
     '''Return a list of topic models and it's corresponding coherence values'''
-    def compute_coherence_values(self, data, limit, start=2, step=3):
+    def compute_coherence_values(self, data, start=2, limit=10, step=3):
         #dictionary,corpus,lemmatizedtext = self.createDictCorpus(data)
         corpus,data_lemmatized = self.createDictCorpus(data)
         
@@ -143,9 +143,11 @@ class TopicModel:
         model_list = []
         for num_topics in range(start, limit, step):
             #model = gensim.models.wrappers.LdaMallet(mallet_path, corpus=corpus, num_topics=num_topics, id2word=id2word)
-            model = gensim.models.ldamodel.LdaModel(corpus=corpus, num_topics=num_topics, id2word=self.id2word)
+            #model = gensim.models.ldamodel.LdaModel(corpus=corpus, num_topics=num_topics, id2word=self.id2word)
+            model = gensim.models.LsiModel(corpus=corpus, num_topics=num_topics, id2word=self.id2word)
             model_list.append(model)
-            coherencemodel = CoherenceModel(model=model, texts=data_lemmatized, dictionary=self.id2word, coherence='c_v')
+            #coherencemodel = CoherenceModel(model=model, texts=data_lemmatized, dictionary=self.id2word, coherence='c_v')
+            coherencemodel = CoherenceModel(model=model, texts=data_lemmatized, dictionary=self.id2word, coherence='u_mass')
             coherence_values.append(coherencemodel.get_coherence())
     
     
