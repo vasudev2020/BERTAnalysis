@@ -52,6 +52,20 @@ def LoadJokes(size):
     exps = [d['title'] for d in dataset]
     return data,labels,exps
 
+def LoadSOMO(size):    
+    with open('../Data/odd_man_out.txt','r') as fp:
+        dataset = fp.readlines()
+    size = len(dataset) if size is None else size
+    dataset=dataset[:size]
+    print('Number of samples',len(dataset))
+    dataset = [d.strip().split('\t') for d in dataset]
+    exps,labels,data = zip(*dataset)
+    
+    labels = [0 if l == 'O' else 1 for l in labels]
+    return list(data),list(labels),list(exps)
+    return data,labels,exps
+    
+
 def Print(Table,name,task):
     with open(task+'-'+name+'.json','w') as fp:
         json.dump(Table,fp)
@@ -64,7 +78,7 @@ def Print(Table,name,task):
 def BERTTopicAnalysis(task,mstart,mstop,mstep,size,alllayers,glove,randemb):
     if task=='idiom':   data,labels,expressions = LoadVNC(size)
     if task=='bshift':   data,labels,expressions = LoadBShift(size)
-    #data,labels,expressions = LoadJokes(size)
+    if task=='somo':  data,labels,expressions = LoadSOMO(size)
     
     merger = Merger(lc=100000,sc=1,tc=100)
     TM = TopicModel()
