@@ -83,7 +83,7 @@ def BERTTopicAnalysis(task,mstart,mstop,mstep,size,alllayers,glove,randemb):
     merger = Merger(lc=100000,sc=1,tc=100)
     TM = TopicModel()
     if alllayers:   Analysers = [Analyser(5,'BERT',i) for i in range(12)]
-    else: Analysers = [Analyser(5,'BERT',11),Analyser(5,'BERT',8),Analyser(5,'BERT',0)]
+    else: Analysers = [Analyser(5,'BERT',11)]
     if glove:   Analysers.append(Analyser(5,'Glove'))
     if randemb: Analysers.append(Analyser(5,'Rand'))
     
@@ -121,4 +121,4 @@ if __name__ == '__main__':
     
     BERTTopicAnalysis(args.task,args.mstart,args.mstop,args.mstep,args.size,args.alllayers,args.glove,args.randemb)
     #ComputeCoherance(args.mstart,args.mstop,args.mstep)
-    #LoadBShift()
+    #LoadSOMO(None)
