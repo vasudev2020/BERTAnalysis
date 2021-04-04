@@ -22,14 +22,10 @@ from Embedding import Embedding
 
 
 class Analyser:   
-    def __init__(self,num_folds,embtype='BERT',layer=11):
+    def __init__(self,num_folds,allembs=False):
         self.num_folds = num_folds
-        self.emb = Embedding(embtype,layer)        
-        self.name = embtype if embtype != 'BERT' else embtype+str(layer)
+        self.emb = Embedding(allembs)        
         self.Embs = {}
-        
-    def getName(self):
-        return self.name
          
     def CreateFolds(self, Data):
         skf = StratifiedKFold(n_splits=self.num_folds)
@@ -43,13 +39,12 @@ class Analyser:
             
             for train_index, test_index in skf.split(seg, seg['Labels']):
                 self.Folds[int(t)].append(seg.iloc[test_index])
-                
-        
-    def getEmb(self,sent):
+                        
+    def getEmb(self,sent,embtype):
         if sent not in self.Embs:   self.Embs[sent] = self.emb.getMean(sent)
-        return self.Embs[sent]
+        return self.Embs[sent][embtype]
                 
-    def perTopicAnalysis(self,Data):
+    def perTopicAnalysis(self,Data,embtype):
         model = MLPClassifier()
         self.CreateFolds(Data)
                 
@@ -61,9 +56,9 @@ class Analyser:
             fold_index = random.sample(fold_index_full,self.num_folds)
             train_index = [x for f in fold_index[:self.num_folds-1] for x in f]
             test_index = fold_index[self.num_folds-1]
-            base_trainX = [self.getEmb(sent) for sent in Data.iloc[train_index]['Sent']]
+            base_trainX = [self.getEmb(sent,embtype) for sent in Data.iloc[train_index]['Sent']]
             base_trainY = [label for label in Data.iloc[train_index]['Labels']]
-            base_testX = [self.getEmb(sent) for sent in Data.iloc[test_index]['Sent']]
+            base_testX = [self.getEmb(sent,embtype) for sent in Data.iloc[test_index]['Sent']]
             base_testY = [label for label in Data.iloc[test_index]['Labels']]
     
             with warnings.catch_warnings():
@@ -90,14 +85,14 @@ class Analyser:
     
             for test_fold in range(self.num_folds):
                 #trainX = [self.bert.getMean(sent) for fold in range(5) for sent in self.Folds[tr_topic][fold]['Sent'] if fold!=test_fold]
-                trainX = [self.getEmb(sent) for fold in range(self.num_folds) for sent in self.Folds[tr_topic][fold]['Sent'] if fold!=test_fold]
+                trainX = [self.getEmb(sent,embtype) for fold in range(self.num_folds) for sent in self.Folds[tr_topic][fold]['Sent'] if fold!=test_fold]
                 trainY = [label for fold in range(self.num_folds) for label in self.Folds[tr_topic][fold]['Labels'] if fold!=test_fold]
                 with warnings.catch_warnings():
                     filterwarnings("ignore", category=ConvergenceWarning)
                     model.fit(trainX,trainY)
     
                 for ts_topic in range(len(self.Folds)):
-                    testX = [self.getEmb(sent) for sent in self.Folds[ts_topic][test_fold]['Sent']]
+                    testX = [self.getEmb(sent,embtype) for sent in self.Folds[ts_topic][test_fold]['Sent']]
                     testY = [label for label in self.Folds[ts_topic][test_fold]['Labels']]
                     
                     if sum(testY)==0 or sum(testY)==len(testY): 

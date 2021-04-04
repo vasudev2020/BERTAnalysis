@@ -26,7 +26,24 @@ def LoadVNC(size):
     labels = [p['lab_int'] for p in dataset["train_sample"]+dataset["test_sample"]]
     expressions = [p['verb']+' '+p['noun'] for p in dataset["train_sample"]+dataset["test_sample"]]
     print('Number of samples',len(data)) 
+    print(sum(labels),len(labels)-sum(labels))
+    print(len(set(expressions)))
     return data,labels,expressions 
+
+def LoadFullVNC(size):        
+    with open("../Data/ID/cook_dataset.tok", "r") as fp:
+        dataset = fp.readlines()
+    dataset = [d.strip().split('||') for d in dataset]
+    dataset = [[d[0],d[1]+' '+d[2],d[3]] for d in dataset if d[0]!='Q']
+    size = len(dataset) if size is None else size
+    dataset = dataset[:size]
+    print('Number of samples',len(dataset))
+    labels,exps, data = zip(*dataset)
+       
+    labels = [0 if l == 'L' else 1 for l in labels]
+    
+    return list(data),list(labels),list(exps)
+    
 
 def LoadBShift(size):
     with open('../Data/bigram_shift.txt','r') as fp:
@@ -75,20 +92,21 @@ def Print(Table,name,task):
     
     print(task,name,mean(seen),mean(unseen),mean(diff),t1,p1,t2,p2)       
     
-def BERTTopicAnalysis(task,mstart,mstop,mstep,size,alllayers,glove,randemb):
+def BERTTopicAnalysis(task,mstart,mstop,mstep,size,alllayers):
     if task=='idiom':   data,labels,expressions = LoadVNC(size)
+    if task=='fullidiom':   data,labels,expressions = LoadFullVNC(size)
     if task=='bshift':   data,labels,expressions = LoadBShift(size)
     if task=='somo':  data,labels,expressions = LoadSOMO(size)
     
+    embs = ['Glove','Rand']
+    embs += (['BERT'+str(l) for l in range(12)] if alllayers else ['BERT11'])
+    
     merger = Merger(lc=100000,sc=1,tc=100)
     TM = TopicModel()
-    if alllayers:   Analysers = [Analyser(5,'BERT',i) for i in range(12)]
-    else: Analysers = [Analyser(5,'BERT',11)]
-    if glove:   Analysers.append(Analyser(5,'Glove'))
-    if randemb: Analysers.append(Analyser(5,'Rand'))
+    A = Analyser(5,alllayers)
     
-    Tables = [[] for _ in Analysers]
-    TopicScores = [[] for _ in Analysers]
+    Tables = [[] for _ in embs]
+    TopicScores = [[] for _ in embs]
     
     for mp in range(mstart,mstop,mstep):       
         TM.train(data,mp)
@@ -97,11 +115,11 @@ def BERTTopicAnalysis(task,mstart,mstop,mstep,size,alllayers,glove,randemb):
         
         MergedTopics = merger.Merge(Topics,m=None) 
         
-        for i,A in enumerate(Analysers):
-            scores,mbs,ci = A.perTopicAnalysis(MergedTopics)
+        for i,embtype in enumerate(embs):
+            scores,mbs,ci = A.perTopicAnalysis(MergedTopics,embtype)
             Tables[i]+=scores
             TopicScores[i].append([mbs,ci])
-    for T,A in zip(Tables,Analysers):    Print(T,A.getName(),task) 
+    for T,embtype in zip(Tables,embs):    Print(T,embtype,task) 
     print(TopicScores)
         
      
@@ -113,12 +131,12 @@ if __name__ == '__main__':
     parser.add_argument('--mstep', type=int, default=5, help='stepping number of topics increment')
     parser.add_argument('--size', type=int, default=None, help='maximum data size limit. None for no limit')
     parser.add_argument('--alllayers', action='store_true')
-    parser.add_argument('--glove', action='store_true')
-    parser.add_argument('--randemb', action='store_true')
     
      
     args=parser.parse_args() 
     
-    BERTTopicAnalysis(args.task,args.mstart,args.mstop,args.mstep,args.size,args.alllayers,args.glove,args.randemb)
+    BERTTopicAnalysis(args.task,args.mstart,args.mstop,args.mstep,args.size,args.alllayers)
     #ComputeCoherance(args.mstart,args.mstop,args.mstep)
     #LoadSOMO(None)
+    #LoadVNC(None)
+    #LoadFullVNC(None)
