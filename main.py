@@ -41,7 +41,8 @@ def LoadFullVNC(size):
     labels,exps, data = zip(*dataset)
        
     labels = [0 if l == 'L' else 1 for l in labels]
-    
+    print(sum(labels),len(labels)-sum(labels))
+    print(len(set(exps)))    
     return list(data),list(labels),list(exps)
     
 
@@ -92,7 +93,7 @@ def Print(Table,name,task):
     
     print(task,name,mean(seen),mean(unseen),mean(diff),t1,p1,t2,p2)       
     
-def BERTTopicAnalysis(task,mstart,mstop,mstep,size,alllayers):
+def BERTTopicAnalysis(task,mstart,mstop,mstep,size,alllayers,train0labels=False):
     if task=='idiom':   data,labels,expressions = LoadVNC(size)
     if task=='fullidiom':   data,labels,expressions = LoadFullVNC(size)
     if task=='bshift':   data,labels,expressions = LoadBShift(size)
@@ -108,8 +109,9 @@ def BERTTopicAnalysis(task,mstart,mstop,mstep,size,alllayers):
     Tables = [[] for _ in embs]
     TopicScores = [[] for _ in embs]
     
-    for mp in range(mstart,mstop,mstep):       
-        TM.train(data,mp)
+    for mp in range(mstart,mstop,mstep):  
+        if train0labels:    TM.train([d for d,l in zip(data,labels) if l==0],mp)
+        else:   TM.train(data,mp)
         Topics = TM.topicModel(data,expressions,labels)
         Topics = Topics.loc[Topics['Dominant_Topic']!=-1]
         
@@ -121,6 +123,63 @@ def BERTTopicAnalysis(task,mstart,mstop,mstep,size,alllayers):
             TopicScores[i].append([mbs,ci])
     for T,embtype in zip(Tables,embs):    Print(T,embtype,task) 
     print(TopicScores)
+    
+def TMAnlyse_old(task,mstart,mstop,mstep,size,train0labels=False):
+    if task=='idiom':   data,labels,expressions = LoadVNC(size)
+    if task=='fullidiom':   data,labels,expressions = LoadFullVNC(size)
+    if task=='bshift':   data,labels,expressions = LoadBShift(size)
+    if task=='somo':  data,labels,expressions = LoadSOMO(size)
+    
+    TM = TopicModel()
+    H_exp = pd.Series()
+    H_label = pd.Series()
+    for mp in range(mstart,mstop,mstep):  
+        if train0labels:    TM.train([d for d,l in zip(data,labels) if l==0],mp)
+        else:   TM.train(data,mp)
+        Topics = TM.topicModel(data,expressions,labels)
+        Topics = Topics.loc[Topics['Dominant_Topic']!=-1]
+        h_exp = Topics.groupby('Dominant_Topic')['Expressions'].apply(lambda x : stats.entropy(x.value_counts(), base=2)).reset_index()
+        h_label = Topics.groupby('Dominant_Topic')['Labels'].apply(lambda x : stats.entropy(x.value_counts(), base=2)).reset_index()
+        H_exp = pd.concat([H_exp,h_exp],axis=0,ignore_index=True)
+        H_label = pd.concat([H_label,h_label],axis=0,ignore_index=True)
+
+    print('Mean expression entropy',H_exp.mean()['Expressions'])
+    print('Mean label entropy',H_label.mean()['Labels'])
+    
+def TMAnalyse(task,mstart,mstop,mstep,size,train0labels=False):
+        
+    if task=='idiom':   data,labels,expressions = LoadVNC(size)
+    if task=='fullidiom':   data,labels,expressions = LoadFullVNC(size)
+    if task=='bshift':   data,labels,expressions = LoadBShift(size)
+    if task=='somo':  data,labels,expressions = LoadSOMO(size)
+    
+    TM = TopicModel()
+    LabelEntropy = defaultdict(list)
+    ExpressionEntropy = defaultdict(list)
+
+    for mp in range(mstart,mstop,mstep): 
+        if train0labels:    TM.train([d for d,l in zip(data,labels) if l==0],mp)
+            
+        else:   TM.train(data,mp)
+        
+        Topics = TM.topicModel(data,expressions,labels)
+        Topics = Topics.loc[Topics['Dominant_Topic']!=-1]
+        
+        max_entropy = stats.entropy([1]*len(Topics['Dominant_Topic'].unique()))
+        print('Maximum entropy', max_entropy)
+        
+        tg = Topics.groupby(['Labels','Dominant_Topic']).size()
+        for l in Topics['Labels'].unique():
+            LabelEntropy[l].append(stats.entropy(tg[l])/max_entropy)
+        #LabelEntropy = [stats.entropy(tg[l])/max_entropy for l in Topics['Labels'].unique()]
+        
+        tg = Topics.groupby(['Expressions','Dominant_Topic']).size()
+        for e in Topics['Expressions'].unique():
+            ExpressionEntropy[e].append(stats.entropy(tg[e])/max_entropy)
+            
+    #print(LabelEntropy)
+    for l in LabelEntropy:  print('Label:',l,mean(LabelEntropy[l]))
+    for e in ExpressionEntropy:  print('Expression:',e,mean(ExpressionEntropy[e]))
         
      
 if __name__ == '__main__':
@@ -131,12 +190,16 @@ if __name__ == '__main__':
     parser.add_argument('--mstep', type=int, default=5, help='stepping number of topics increment')
     parser.add_argument('--size', type=int, default=None, help='maximum data size limit. None for no limit')
     parser.add_argument('--alllayers', action='store_true')
+    parser.add_argument('--train0labels', action='store_true')
+    
     
      
     args=parser.parse_args() 
     
-    BERTTopicAnalysis(args.task,args.mstart,args.mstop,args.mstep,args.size,args.alllayers)
+    BERTTopicAnalysis(args.task,args.mstart,args.mstop,args.mstep,args.size,args.alllayers,args.train0labels)
+    
     #ComputeCoherance(args.mstart,args.mstop,args.mstep)
     #LoadSOMO(None)
     #LoadVNC(None)
     #LoadFullVNC(None)
+    #TMAnalyse('fullidiom',10,51,5,None)
