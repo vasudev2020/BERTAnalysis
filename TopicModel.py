@@ -18,7 +18,7 @@ path = '../Data/BERTAnalysis/'
 
 class TopicModel:
     def __init__(self):
-        self.nlp = spacy.load('en', disable=['parser', 'ner'])
+        self.nlp = spacy.load('en_core_web_sm', disable=['parser', 'ner'])
         self.stop_words = stopwords.words('english')
         self.stop_words.extend(['from', 'subject', 're', 'edu', 'use'])
         
