@@ -65,8 +65,10 @@ class Analyser:
                 filterwarnings("ignore", category=ConvergenceWarning)
                 model.fit(base_trainX,base_trainY)
                 pred = model.predict(base_testX)
-                pred_proba = [proba[1] for proba in model.predict_proba(base_testX)]
-                base_Auc = roc_auc_score(base_testY,pred_proba)
+                #pred_proba = [proba[1] for proba in model.predict_proba(base_testX)]
+                pred_proba = [proba for proba in model.predict_proba(base_testX)]
+                #print(pred_proba)
+                base_Auc = roc_auc_score(base_testY,pred_proba,multi_class='ovr')
             mbs += base_Auc
         mbs = mbs / 10
 
@@ -76,8 +78,8 @@ class Analyser:
             F1.append([])
             Auc.append([])
             for ts_topic in range(len(self.Folds)):
-                Acc[tr_topic].append(0)
-                F1[tr_topic].append(0)
+                #Acc[tr_topic].append(0)
+                #F1[tr_topic].append(0)
                 Auc[tr_topic].append(0)
     
         for tr_topic in range(len(self.Folds)):
@@ -100,11 +102,13 @@ class Analyser:
                         print(Data.groupby(['Dominant_Topic','Labels']).size()[ts_topic])
                     
                     pred = model.predict(testX)
-                    pred_proba = [proba[1] for proba in model.predict_proba(testX)]
+                    #pred_proba = [proba[1] for proba in model.predict_proba(testX)]
+                    pred_proba = [proba for proba in model.predict_proba(testX)]
             
-                    Acc[tr_topic][ts_topic] += accuracy_score(testY, pred)
-                    F1[tr_topic][ts_topic] += f1_score(testY, pred, average='binary')
-                    Auc[tr_topic][ts_topic] += roc_auc_score(testY,pred_proba)
+                    #Acc[tr_topic][ts_topic] += accuracy_score(testY, pred)
+                    #F1[tr_topic][ts_topic] += f1_score(testY, pred, average='binary')
+                    #TODO: make it ovr
+                    Auc[tr_topic][ts_topic] += roc_auc_score(testY,pred_proba,multi_class='ovr')
          
         seen_score = [Auc[t][t]/self.num_folds for t in range(len(self.Folds))]
         unseen_score = [(sum(Auc[t]) - Auc[t][t]) / (self.num_folds * (len(self.Folds)-1)) for t in range(len(self.Folds))]

@@ -85,6 +85,20 @@ def LoadSOMO(size):
     labels = [0 if l == 'O' else 1 for l in labels]
     return list(data),list(labels),list(exps)
     return data,labels,exps
+
+def LoadTSV(size):
+    df = pd.read_csv('../Data/Sentlen/sentence_length.txt', sep='\t')
+    df.columns = ['exps','labels','data']
+
+    df = stratified_sample_df(df,'labels',len(df) if size is None else int(size/6))
+    exps = list(df.iloc[:,0])
+    labels = list(df.iloc[:,1])
+    data = list(df.iloc[:,2])
+    
+
+    return list(data),list(labels),list(exps)
+    
+
 def LoadSentLen(size):
     df = pd.read_csv('../Data/Sentlen/sentence_length.txt', sep='\t')
     df.columns = ['exps','labels','data']
@@ -98,6 +112,41 @@ def LoadSentLen(size):
 
     print('0:',sum(labels))
     print('1:',len(labels)-sum(labels))
+    return list(data),list(labels),list(exps)
+
+def LoadTreeDepth(size):
+    df = pd.read_csv('../Data/TreeDepth/tree_depth.txt', sep='\t')
+    df.columns = ['exps','labels','data']
+    L = list(df.labels.unique())
+    #print(L)
+
+    df = stratified_sample_df(df,'labels',len(df) if size is None else int(size/len(L)))
+    print(df.labels.value_counts())
+
+    exps = list(df.iloc[:,0])
+    labels = list(df.iloc[:,1])
+    data = list(df.iloc[:,2])
+        
+    labels = [L.index(l) for l in labels]
+
+    return list(data),list(labels),list(exps)
+
+def LoadWC(size):
+    df = pd.read_csv('../Data/WC/word_content.txt', sep='\t')
+    df.columns = ['exps','labels','data']
+    L = list(df.labels.unique())
+    print(len(L))
+    #print(L)
+
+    df = stratified_sample_df(df,'labels',len(df) if size is None else int(size/len(L)))
+    print(df.labels.value_counts())
+
+    exps = list(df.iloc[:,0])
+    labels = list(df.iloc[:,1])
+    data = list(df.iloc[:,2])
+    labels = [L.index(l) for l in labels]
+    
+    
     return list(data),list(labels),list(exps)
  
 def stratified_sample_df(df, col, n_samples):
@@ -122,6 +171,8 @@ def BERTTopicAnalysis(task,mstart,mstop,mstep,size,alllayers,train0labels=False)
     if task=='bshift':   data,labels,expressions = LoadBShift(size)
     if task=='somo':  data,labels,expressions = LoadSOMO(size)
     if task=='sentlen':  data,labels,expressions = LoadSentLen(size)
+    if task=='treedepth':  data,labels,expressions = LoadTreeDepth(size)
+    if task=='wc':  data,labels,expressions = LoadWC(size)
     
     embs = ['Glove','Rand']
     embs += (['BERT'+str(l) for l in range(12)] if alllayers else ['BERT11'])
@@ -154,6 +205,8 @@ def TMAnlyse_old(task,mstart,mstop,mstep,size,train0labels=False):
     if task=='bshift':   data,labels,expressions = LoadBShift(size)
     if task=='somo':  data,labels,expressions = LoadSOMO(size)
     if task=='sentlen':  data,labels,expressions = LoadSentLen(size)
+    if task=='treedepth':  data,labels,expressions = LoadTreeDepth(size)
+    if task=='wc':  data,labels,expressions = LoadWC(size)
 
     TM = TopicModel()
     H_exp = pd.Series()
@@ -199,6 +252,9 @@ def TMAnalyse(task,mstart,mstop,mstep,size,train0labels=False):
     if task=='bshift':   data,labels,expressions = LoadBShift(size)
     if task=='somo':  data,labels,expressions = LoadSOMO(size)
     if task=='sentlen':  data,labels,expressions = LoadSentLen(size)
+    if task=='treedepth':  data,labels,expressions = LoadTreeDepth(size)
+    if task=='wc':  data,labels,expressions = LoadWC(size)
+
 
     
     TM = TopicModel()
@@ -256,6 +312,7 @@ if __name__ == '__main__':
     t0 = time.time()
     BERTTopicAnalysis(args.task,args.mstart,args.mstop,args.mstep,args.size,args.alllayers,args.train0labels)
     #LoadSentLen(6000)
+    #LoadWC(5000)
     print(time.time()-t0)
     
     #ComputeCoherance(args.mstart,args.mstop,args.mstep)
