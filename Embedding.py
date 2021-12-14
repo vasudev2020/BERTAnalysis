@@ -16,7 +16,7 @@ class Embedding:
         self.bt = BertTokenizer.from_pretrained('bert-base-uncased')
         self.bert = BertModel.from_pretrained('bert-base-uncased')
         self.bert.eval()
-           
+        
         f = open('../Data/glove.840B.300d.txt','r')
         self.gloveModel = {}
         for line in f:

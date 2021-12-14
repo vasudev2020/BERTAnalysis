@@ -22,10 +22,11 @@ from Embedding import Embedding
 
 
 class Analyser:   
-    def __init__(self,num_folds,allembs=False):
+    def __init__(self,num_folds,multiclass=False,allembs=False):
         self.num_folds = num_folds
         self.emb = Embedding(allembs)        
         self.Embs = {}
+        self.multiclass = multiclass
          
     def CreateFolds(self, Data):
         skf = StratifiedKFold(n_splits=self.num_folds)
@@ -64,11 +65,14 @@ class Analyser:
             with warnings.catch_warnings():
                 filterwarnings("ignore", category=ConvergenceWarning)
                 model.fit(base_trainX,base_trainY)
-                pred = model.predict(base_testX)
-                #pred_proba = [proba[1] for proba in model.predict_proba(base_testX)]
-                pred_proba = [proba for proba in model.predict_proba(base_testX)]
-                #print(pred_proba)
-                base_Auc = roc_auc_score(base_testY,pred_proba,multi_class='ovr')
+                #pred = model.predict(base_testX)
+                if self.multiclass:
+                    pred_proba = [proba for proba in model.predict_proba(base_testX)]
+                    base_Auc = roc_auc_score(base_testY,pred_proba,multi_class='ovr')
+                else:
+                    pred_proba = [proba[1] for proba in model.predict_proba(base_testX)]
+                    base_Auc = roc_auc_score(base_testY,pred_proba)
+                
             mbs += base_Auc
         mbs = mbs / 10
 
@@ -101,14 +105,20 @@ class Analyser:
                         print(ts_topic,test_fold, sum(testY))
                         print(Data.groupby(['Dominant_Topic','Labels']).size()[ts_topic])
                     
-                    pred = model.predict(testX)
+                    #pred = model.predict(testX)
                     #pred_proba = [proba[1] for proba in model.predict_proba(testX)]
-                    pred_proba = [proba for proba in model.predict_proba(testX)]
+                    #pred_proba = [proba for proba in model.predict_proba(testX)]
             
                     #Acc[tr_topic][ts_topic] += accuracy_score(testY, pred)
                     #F1[tr_topic][ts_topic] += f1_score(testY, pred, average='binary')
-                    #TODO: make it ovr
-                    Auc[tr_topic][ts_topic] += roc_auc_score(testY,pred_proba,multi_class='ovr')
+                    if self.multiclass:
+                        #pred_proba = [proba for proba in model.predict_proba(testX)]
+                        Auc[tr_topic][ts_topic] += roc_auc_score(testY,model.predict_proba(testX),multi_class='ovr')
+                    else:
+                        pred_proba = [proba[1] for proba in model.predict_proba(testX)]
+                        Auc[tr_topic][ts_topic] += roc_auc_score(testY,pred_proba)
+                    
+                    #Auc[tr_topic][ts_topic] += roc_auc_score(testY,pred_proba,multi_class='ovr')
          
         seen_score = [Auc[t][t]/self.num_folds for t in range(len(self.Folds))]
         unseen_score = [(sum(Auc[t]) - Auc[t][t]) / (self.num_folds * (len(self.Folds)-1)) for t in range(len(self.Folds))]
