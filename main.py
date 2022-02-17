@@ -14,6 +14,7 @@ from scipy import stats
 import time
 
 import json, pickle
+from tqdm import tqdm
 
 
 from TopicModel import TopicModel
@@ -81,16 +82,16 @@ def PrintKeywords(size):
     for t in Samples.keys():
         print(t,Samples[t][0],Samples[t][2],min(Samples[t][3],(Samples[t][2]-Samples[t][3])))
            
-def TMAnalyse(task,mstart,mstop,mstep,size,train0labels=False):
+def TMAnalyse(task, mstart, mstop, mstep, size, train0labels=False):
         
     if task=='idiom':   data,labels,expressions = LoadVNC(size)
     else:   data,labels,expressions = LoadProbingTask(task,size)
     
     TM = TopicModel()
     LabelEntropy = defaultdict(list)
-    ExpressionEntropy = defaultdict(list)
+    #ExpressionEntropy = defaultdict(list)
 
-    for mp in range(mstart,mstop,mstep): 
+    for mp in tqdm(range(mstart,mstop,mstep)): 
         if train0labels:    TM.train([d for d,l in zip(data,labels) if l==0],mp)
             
         else:   TM.train(data,mp)
@@ -105,7 +106,7 @@ def TMAnalyse(task,mstart,mstop,mstep,size,train0labels=False):
         for l in Topics['Labels'].unique():
             LabelEntropy[l].append(stats.entropy(tg[l])/max_entropy)
         #LabelEntropy = [stats.entropy(tg[l])/max_entropy for l in Topics['Labels'].unique()]
-        
+        '''
         tg = Topics.groupby(['Expressions','Dominant_Topic']).size()
         for e in Topics['Expressions'].unique():
             Ze = len(Topics.loc[Topics['Expressions']==e])
@@ -115,14 +116,15 @@ def TMAnalyse(task,mstart,mstop,mstep,size,train0labels=False):
             h = stats.entropy(tg[e])/Z
             assert h<=1.0 and h>=0
             ExpressionEntropy[e].append(h)
+        '''
             
         #TODO: keywords of topics
          
     #print(LabelEntropy)
-    for l in LabelEntropy:  print('Label:',l,':',mean(LabelEntropy[l]))
-    for e in ExpressionEntropy:  print('Expression:',e,':',mean(ExpressionEntropy[e]))
+    for l in LabelEntropy:  print('Label:',l,':',mean(LabelEntropy[l]),min(LabelEntropy[l]),max(LabelEntropy[l]))
+    #for e in ExpressionEntropy:  print('Expression:',e,':',mean(ExpressionEntropy[e]))
              
-def BERTTopicAnalysis(task,mstart,mstop,mstep,size,alllayers,train0labels=False):
+def BERTTopicAnalysis(task, mstart, mstop, mstep, size, alllayers, train0labels=False):
     if task=='idiom':   data,labels,expressions = LoadVNC(size)
     else:   data,labels,expressions = LoadProbingTask(task,size)
     
@@ -162,12 +164,16 @@ if __name__ == '__main__':
     parser.add_argument('--size', type=int, default=None, help='maximum data size limit. None for no limit')
     parser.add_argument('--alllayers', action='store_true')
     parser.add_argument('--train0labels', action='store_true')
+    parser.add_argument('--entropyanalyse', action='store_true')
     
     args=parser.parse_args() 
     t0 = time.time()
-    BERTTopicAnalysis(args.task,args.mstart,args.mstop,args.mstep,args.size,args.alllayers,args.train0labels)
-    
+    if args.entropyanalyse:
+        TMAnalyse(args.task,args.mstart,args.mstop,args.mstep,args.size,args.train0labels)
+    else:
+        BERTTopicAnalysis(args.task,args.mstart,args.mstop,args.mstep,args.size,args.alllayers,args.train0labels)
+    #TMAnalyse('bshift',10,51,5,10000)
     print(time.time()-t0)
     
-    #TMAnalyse('bshift',10,51,5,10000)
+    #
     #PrintKeywords(None)
