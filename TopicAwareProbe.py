@@ -35,7 +35,7 @@ class TopicAwareProbe:
         self.train0labels = train0labels
         
         self.num_folds = num_folds
-        self.emb = Embedding(allembs)        
+        self.allembs = allembs
         self.Embs = {}
         
     def getTail(self,Topics,Labels):
@@ -80,7 +80,7 @@ class TopicAwareProbe:
     
     def entropyAnalysis(self,data,labels,expressions):
         LabelEntropy = defaultdict(list)
-        #ExpressionEntropy = defaultdict(list)
+        ExpressionEntropy = defaultdict(list)
 
         for mp in tqdm(range(self.mstart,self.mstop,self.mstep)): 
             if self.train0labels:    self.TM.train([d for d,l in zip(data,labels) if l==0],mp)
@@ -95,27 +95,19 @@ class TopicAwareProbe:
             tg = Topics.groupby(['Labels','Dominant_Topic']).size()
             for l in Topics['Labels'].unique():
                 LabelEntropy[l].append(stats.entropy(tg[l])/max_entropy)
-            #LabelEntropy = [stats.entropy(tg[l])/max_entropy for l in Topics['Labels'].unique()]
-            '''
+            
             tg = Topics.groupby(['Expressions','Dominant_Topic']).size()
             for e in Topics['Expressions'].unique():
-                Ze = len(Topics.loc[Topics['Expressions']==e])
-                Zt = len(Topics['Dominant_Topic'].unique())
-                
-                Z = stats.entropy([1]*min(Zt,Ze))
-                h = stats.entropy(tg[e])/Z
-                assert h<=1.0 and h>=0
-                ExpressionEntropy[e].append(h)
-            '''
-                
-            #TODO: keywords of topics
-             
-        #print(LabelEntropy)
+                max_exp_entropy = stats.entropy([1]*len(Topics.loc[Topics['Expressions']==e]))                
+                ExpressionEntropy[e].append(stats.entropy(tg[l])/min(max_entropy,max_exp_entropy))
+            
+            #TODO: keywords of topics             
         
         for l in LabelEntropy:  
             print('Label:',l,':',mean(LabelEntropy[l]),min(LabelEntropy[l]),max(LabelEntropy[l]))
-            #print(LabelEntropy[l])
-        #for e in ExpressionEntropy:  print('Expression:',e,':',mean(ExpressionEntropy[e]))
+
+        for e in ExpressionEntropy:  
+            print('Expression:',e,':',mean(ExpressionEntropy[e]),min(ExpressionEntropy[e]),max(ExpressionEntropy[e]))
     
     def probe(self,data,labels,expressions):
         '''Do a topic aware probing and print all the results. Input: 
@@ -212,7 +204,7 @@ class TopicAwareProbe:
                         
     def getEmb(self,sent,embtype):
         ''' This will return the 'embtype' embedding of input sentence 'sent' '''
-        
+        if not hasattr(self,'emb'):   self.emb = Embedding(self.allembs) 
         if sent not in self.Embs:   self.Embs[sent] = self.emb.getMean(sent)
         return self.Embs[sent][embtype]
         
@@ -237,6 +229,26 @@ def LoadVNC(size):
     print('No. of idiomatic expressions:',len(set(expressions)))
     return data,labels,expressions 
 
+def LoadFullVNC(size):        
+    with open("../Data/ID/cook_dataset.tok", "r") as fp:
+        dataset = fp.readlines()
+    dataset = [d.strip().split('||') for d in dataset]
+    dataset = [[d[0],d[1]+' '+d[2],d[3]] for d in dataset if d[0]!='Q']
+    size = len(dataset) if size is None else size
+    dataset = dataset[:size]
+    labels,exps, data = zip(*dataset)
+       
+    labels = [0 if l == 'L' else 1 for l in labels]
+    
+    print('Loaded VNC dataset with')
+    print('No. of samples:',len(data)) 
+    print('No. of idioms:',sum(labels))
+    print('No. of literals:',len(labels)-sum(labels))
+    print('No. of idiomatic expressions:',len(set(exps)))
+    
+    return list(data),list(labels),list(exps)
+
+
 def LoadProbingTask(task,size):
     df = pd.read_csv('../Data/ProbingTasks/'+task+'.txt', sep='\t')
     df.columns = ['exps','labels','data']
@@ -259,7 +271,7 @@ def LoadProbingTask(task,size):
     
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--task', type=str, default='idiom', help='task name')
+    parser.add_argument('--task', type=str, default='fullidiom', help='task name')
     parser.add_argument('--mstart', type=int, default=5, help='starting number of topics')
     parser.add_argument('--mstop', type=int, default=51, help='stoping number of topics')
     parser.add_argument('--mstep', type=int, default=5, help='stepping number of topics increment')
@@ -267,11 +279,13 @@ if __name__ == '__main__':
 
     parser.add_argument('--alllayers', action='store_true', help='Analyse all 12 layers of BERT')
     parser.add_argument('--train0labels', action='store_true', help='Train topic model using 0 (literal in case of idiom task) labels')
-    parser.add_argument('--entropyanalyse', action='store_true')
+    parser.add_argument('--entropyanalysis', action='store_true', help='Do the entropy analysis')
+    parser.add_argument('--probe', action='store_true', help='Do the topic aware probing')
     
     args=parser.parse_args() 
     t0 = time.time()
     if args.task=='idiom':   data,labels,expressions = LoadVNC(args.size)
+    elif args.task=='fullidiom':   data,labels,expressions = LoadFullVNC(args.size)
     else:   data,labels,expressions = LoadProbingTask(args.task,args.size)
     
     #print(len(data))
@@ -279,7 +293,9 @@ if __name__ == '__main__':
     embs += (['BERT'+str(l) for l in range(12)] if args.alllayers else ['BERT11'])
     
     ProbeModel = TopicAwareProbe(embs, args.mstart, args.mstop, args.mstep, args.train0labels, 5, args.alllayers)
-    ProbeModel.probe(data,labels,expressions)
+    
+    if args.entropyanalysis:    ProbeModel.entropyAnalysis(data,labels,expressions)
+    if args.probe:  ProbeModel.probe(data,labels,expressions)
     t = timedelta(seconds=time.time()-t0)
     #print(time.time()-t0)
     print(t)
