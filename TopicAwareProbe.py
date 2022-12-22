@@ -98,16 +98,23 @@ class TopicAwareProbe:
             
             tg = Topics.groupby(['Expressions','Dominant_Topic']).size()
             for e in Topics['Expressions'].unique():
-                max_exp_entropy = stats.entropy([1]*len(Topics.loc[Topics['Expressions']==e]))                
-                ExpressionEntropy[e].append(stats.entropy(tg[l])/min(max_entropy,max_exp_entropy))
+                max_exp_entropy = stats.entropy([1]*len(Topics.loc[Topics['Expressions']==e]))  
+                ExpressionEntropy[e].append(stats.entropy(tg[e])/min(max_entropy,max_exp_entropy))
             
             #TODO: keywords of topics             
-        
+        print('{0:<18} {1:<18} {2:<18} {3:<18}'.format('Label','Mean entropy', 'Min entropy', 'Max entropy'))
         for l in LabelEntropy:  
-            print('Label:',l,':',mean(LabelEntropy[l]),min(LabelEntropy[l]),max(LabelEntropy[l]))
-
+            print('{0:<18} {1:<18} {2:<18} {3:<18}'.format(l,round(mean(LabelEntropy[l]),4), round(min(LabelEntropy[l]),4), round(max(LabelEntropy[l]),4)))
+            #print('Label:',l,':',mean(LabelEntropy[l]),min(LabelEntropy[l]),max(LabelEntropy[l]))
+            
+        print('{0:<18} {1:<18} {2:<18} {3:<18}'.format('Expression','Mean entropy', 'Min entropy', 'Max entropy'))
         for e in ExpressionEntropy:  
-            print('Expression:',e,':',mean(ExpressionEntropy[e]),min(ExpressionEntropy[e]),max(ExpressionEntropy[e]))
+            print('{0:<18} {1:<18} {2:<18} {3:<18}'.format(e,round(mean(ExpressionEntropy[e]),4), round(min(ExpressionEntropy[e]),4), round(max(ExpressionEntropy[e]),4)))
+            #print('Expression:',e,':',mean(ExpressionEntropy[e]),min(ExpressionEntropy[e]),max(ExpressionEntropy[e]))
+        avg_mean = round(mean([mean(ExpressionEntropy[e]) for e in ExpressionEntropy]),4)
+        avg_min = round(mean([min(ExpressionEntropy[e]) for e in ExpressionEntropy]),4)
+        avg_max = round(mean([max(ExpressionEntropy[e]) for e in ExpressionEntropy]),4)
+        print('{0:<18} {1:<18} {2:<18} {3:<18}'.format('Average',avg_mean,avg_min,avg_max))
     
     def probe(self,data,labels,expressions):
         '''Do a topic aware probing and print all the results. Input: 
@@ -142,7 +149,7 @@ class TopicAwareProbe:
                 if embtype+'_unseen' not in Scores: Scores[embtype+'_unseen']=[]
                 Scores[embtype+'_unseen'].append(unseen_score)
                 
-        print('{0:>8} {1:>8} {2:>8} {3:>8} {4:>8}'.format('Emb','Seen','Unseen','Diff','p-value'))
+        print('{0:<8} {1:<8} {2:<8} {3:<8} {4:<8}'.format('Emb','Seen','Unseen','Diff','p-value'))
         for embtype in self.emb_types:
             mean_seen = mean(Scores[embtype+'_seen'])
             mean_unseen = mean(Scores[embtype+'_unseen'])
@@ -150,7 +157,7 @@ class TopicAwareProbe:
             mean_diff = mean(diff)
             t,p = list(stats.ttest_rel(diff,[0]*len(diff),alternative='greater'))
             #print(embtype,mean_seen,mean_unseen,mean_diff,p)
-            print('{0:>8} {1:>8} {2:>8} {3:>8} {4:>8}'.format(embtype,round(mean_seen,4),round(mean_unseen,4),round(mean_diff,4),p))
+            print('{0:<8} {1:<8} {2:<8} {3:<8} {4:<8}'.format(embtype,round(mean_seen,4),round(mean_unseen,4),round(mean_diff,4),p))
         
         
     def getSeenUnseenScores(self,Data,embtype):
