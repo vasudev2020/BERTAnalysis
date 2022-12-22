@@ -107,6 +107,7 @@ class TopicAwareProbe:
             print('{0:<18} {1:<18} {2:<18} {3:<18}'.format(l,round(mean(LabelEntropy[l]),4), round(min(LabelEntropy[l]),4), round(max(LabelEntropy[l]),4)))
             #print('Label:',l,':',mean(LabelEntropy[l]),min(LabelEntropy[l]),max(LabelEntropy[l]))
             
+        print()
         print('{0:<18} {1:<18} {2:<18} {3:<18}'.format('Expression','Mean entropy', 'Min entropy', 'Max entropy'))
         for e in ExpressionEntropy:  
             print('{0:<18} {1:<18} {2:<18} {3:<18}'.format(e,round(mean(ExpressionEntropy[e]),4), round(min(ExpressionEntropy[e]),4), round(max(ExpressionEntropy[e]),4)))
