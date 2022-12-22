@@ -25,7 +25,7 @@ class Embedding:
             word = splitLines[0]
             wordEmbedding = np.array([float(value) for value in splitLines[1:]])
             self.gloveModel[word] = wordEmbedding
-        print(len(self.gloveModel)," words loaded!")
+        print('Loaded glove embeddings with',len(self.gloveModel),"words !")
             
     
     def getMean(self,sent):

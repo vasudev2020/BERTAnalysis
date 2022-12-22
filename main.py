@@ -121,7 +121,10 @@ def TMAnalyse(task, mstart, mstop, mstep, size, train0labels=False):
         #TODO: keywords of topics
          
     #print(LabelEntropy)
-    for l in LabelEntropy:  print('Label:',l,':',mean(LabelEntropy[l]),min(LabelEntropy[l]),max(LabelEntropy[l]))
+    
+    for l in LabelEntropy:  
+        print('Label:',l,':',mean(LabelEntropy[l]),min(LabelEntropy[l]),max(LabelEntropy[l]))
+        #print(LabelEntropy[l])
     #for e in ExpressionEntropy:  print('Expression:',e,':',mean(ExpressionEntropy[e]))
              
 def BERTTopicAnalysis(task, mstart, mstop, mstep, size, alllayers, train0labels=False):
