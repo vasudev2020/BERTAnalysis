@@ -195,7 +195,8 @@ class TopicAwareProbe:
                 if embtype+'_unseen' not in Scores: Scores[embtype+'_unseen']=[]
                 Scores[embtype+'_unseen'] += unseen_score
                 
-        print('{0:<8} {1:<8} {2:<8} {3:<8} {4:<8}'.format('Emb','Seen','Unseen','Diff','p-value'))
+        #print('{0:<8} {1:<8} {2:<8} {3:<8} {4:<8}'.format('Emb','Seen','Unseen','Diff','p-value'))
+        print('{0:<8} {1:<8} {2:<8} {3:<8}'.format('Emb','Seen','Unseen','Diff'))
         for embtype in self.emb_types:
             mean_seen = mean(Scores[embtype+'_seen'])
             mean_unseen = mean(Scores[embtype+'_unseen'])
@@ -203,10 +204,12 @@ class TopicAwareProbe:
             mean_diff = mean(diff)
             t,p = list(stats.ttest_rel(diff,[0]*len(diff),alternative='greater'))
             #print(embtype,mean_seen,mean_unseen,mean_diff,p)
-            print('{0:<8} {1:<8} {2:<8} {3:<8} {4:<8}'.format(embtype,round(mean_seen,4),round(mean_unseen,4),round(mean_diff,4),p))
+            #print('{0:<8} {1:<8} {2:<8} {3:<8} {4:<8}'.format(embtype,round(mean_seen,4),round(mean_unseen,4),round(mean_diff,4),p))
+            print('{0:<8} {1:<8} {2:<8} {3:<8}'.format(embtype,round(mean_seen,4),round(mean_unseen,4),round(mean_diff,4)))
         
+        #TODO: remove p-value print
         
-    def getSeenUnseenScores_new(self,Data,embtype):
+    def getSeenUnseenScores_alt(self,Data,embtype):
         '''Get the  seen score and the unseen score
         Input: topic wise partitioned data and the embedding type'''
         
@@ -271,7 +274,7 @@ def stratified_sample_df(df, col, n_samples):
     return df_
 
 def LoadVNC(size):
-    dataset = pickle.load(open("../Data/ID/vnics_dataset_full_ratio-split.pkl", "rb"), encoding='latin1')          
+    dataset = pickle.load(open("./data/vnics_dataset_full_ratio-split.pkl", "rb"), encoding='latin1')          
     data = [p['sent'].replace(' &apos;','\'') for p in dataset["train_sample"]+dataset["test_sample"]]
     labels = [p['lab_int'] for p in dataset["train_sample"]+dataset["test_sample"]]
     expressions = [p['verb']+' '+p['noun'] for p in dataset["train_sample"]+dataset["test_sample"]]
@@ -283,7 +286,7 @@ def LoadVNC(size):
     return data,labels,expressions 
 
 def LoadFullVNC(size):        
-    with open("../Data/ID/cook_dataset.tok", "r") as fp:
+    with open("./data/cook_dataset.tok", "r") as fp:
         dataset = fp.readlines()
     dataset = [d.strip().split('||') for d in dataset]
     dataset = [[d[0],d[1]+' '+d[2],d[3]] for d in dataset if d[0]!='Q']
@@ -303,7 +306,7 @@ def LoadFullVNC(size):
 
 
 def LoadProbingTask(task,size):
-    df = pd.read_csv('../Data/ProbingTasks/'+task+'.txt', sep='\t')
+    df = pd.read_csv('./data/'+task+'.txt', sep='\t')
     df.columns = ['exps','labels','data']
     L = list(df.labels.unique())
 
@@ -337,8 +340,8 @@ if __name__ == '__main__':
     
     args=parser.parse_args() 
     t0 = time.time()
-    if args.task=='idiom':   data,labels,expressions = LoadVNC(args.size)
-    elif args.task=='fullidiom':   data,labels,expressions = LoadFullVNC(args.size)
+    #if args.task=='idiom':   data,labels,expressions = LoadVNC(args.size)
+    if args.task=='fullidiom':   data,labels,expressions = LoadFullVNC(args.size)
     else:   data,labels,expressions = LoadProbingTask(args.task,args.size)
     
     #print(len(data))
