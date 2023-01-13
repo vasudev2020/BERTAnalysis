@@ -13,7 +13,7 @@ Analyse the topical component of BERT embedding based approach by using topic-aw
 # Configure
 + pip install 
 + Copy probing datasets from https://github.com/facebookresearch/SentEval/tree/master/data/probing to `data/`
-+ Copy glove dataset to `data/`
++ Copy and extract GloVe dataset glove.840B.300d from https://nlp.stanford.edu/projects/glove/ to `data/`
 
 # Entropy analysis of VNIC dataset
 
