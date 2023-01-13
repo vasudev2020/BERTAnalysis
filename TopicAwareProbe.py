@@ -116,7 +116,51 @@ class TopicAwareProbe:
         avg_min = round(mean([min(ExpressionEntropy[e]) for e in ExpressionEntropy]),4)
         avg_max = round(mean([max(ExpressionEntropy[e]) for e in ExpressionEntropy]),4)
         print('{0:<18} {1:<18} {2:<18} {3:<18}'.format('Average',avg_mean,avg_min,avg_max))
+        
+        
+    def getSeenUnseenScores(self,Data,embtype):
+        model = MLPClassifier()
+        self.createFolds(Data)
+
+        Auc = [[0 for ts in range(len(self.Folds))] for tr in range(len(self.Folds))]
     
+        for tr_topic in range(len(self.Folds)):
+            ts_topic = tr_topic
+    
+            for test_fold in range(self.num_folds):
+                trainX = [self.getEmb(sent,embtype) for fold in range(self.num_folds) for sent in self.Folds[tr_topic][fold]['Sent'] if fold!=test_fold]
+                trainY = [label for fold in range(self.num_folds) for label in self.Folds[tr_topic][fold]['Labels'] if fold!=test_fold]
+                with warnings.catch_warnings():
+                    filterwarnings("ignore", category=ConvergenceWarning)
+                    model.fit(trainX,trainY)
+    
+                for ts_topic in range(len(self.Folds)):
+                    testX = [self.getEmb(sent,embtype) for sent in self.Folds[ts_topic][test_fold]['Sent']]
+                    testY = [label for label in self.Folds[ts_topic][test_fold]['Labels']]
+                    
+                    if sum(testY)==0 or sum(testY)==len(testY): 
+                        print(ts_topic,test_fold, sum(testY))
+                        print(Data.groupby(['Dominant_Topic','Labels']).size()[ts_topic])
+                    
+                    if self.multiclass:
+                        Auc[tr_topic][ts_topic] += roc_auc_score(testY,model.predict_proba(testX),multi_class='ovr')
+                    else:
+                        pred_proba = [proba[1] for proba in model.predict_proba(testX)]
+                        Auc[tr_topic][ts_topic] += roc_auc_score(testY,pred_proba)
+                             
+        seen_score = [Auc[t][t]/self.num_folds for t in range(len(self.Folds))]
+        unseen_score = [(sum(Auc[t]) - Auc[t][t]) / (self.num_folds * (len(self.Folds)-1)) for t in range(len(self.Folds))]
+        
+        #ttest = list(stats.ttest_rel(seen_score,unseen_score))    
+        #scores = [[str(len(self.Folds))+'_'+str(i),seen,unseen,seen-unseen] for i, (seen,unseen) in enumerate(zip(seen_score,unseen_score))]
+        
+        return seen_score, unseen_score
+    
+    '''For each topic model calculate single seen score and single unseen score and then 
+        take an average across different topic model. 
+        To calculate the unseen score, for each trained probing model, 
+            merge test fold from all k-1 unseen topics and evaluate it together.'''
+
     def probe(self,data,labels,expressions):
         '''Do a topic aware probing and print all the results. Input: 
                 data: a list of sentences
@@ -144,11 +188,12 @@ class TopicAwareProbe:
             Topics = self.tailReduction(Topics,Labels)
                         
             for embtype in self.emb_types:
+                #seen_score,unseen_score = self.getSeenUnseenScores_new(Topics,embtype)
                 seen_score,unseen_score = self.getSeenUnseenScores(Topics,embtype)
                 if embtype+'_seen' not in Scores: Scores[embtype+'_seen']=[]
-                Scores[embtype+'_seen'].append(seen_score)
+                Scores[embtype+'_seen'] += seen_score
                 if embtype+'_unseen' not in Scores: Scores[embtype+'_unseen']=[]
-                Scores[embtype+'_unseen'].append(unseen_score)
+                Scores[embtype+'_unseen'] += unseen_score
                 
         print('{0:<8} {1:<8} {2:<8} {3:<8} {4:<8}'.format('Emb','Seen','Unseen','Diff','p-value'))
         for embtype in self.emb_types:
@@ -161,7 +206,7 @@ class TopicAwareProbe:
             print('{0:<8} {1:<8} {2:<8} {3:<8} {4:<8}'.format(embtype,round(mean_seen,4),round(mean_unseen,4),round(mean_diff,4),p))
         
         
-    def getSeenUnseenScores(self,Data,embtype):
+    def getSeenUnseenScores_new(self,Data,embtype):
         '''Get the  seen score and the unseen score
         Input: topic wise partitioned data and the embedding type'''
         
@@ -192,7 +237,7 @@ class TopicAwareProbe:
             topic_wise_seen_scores.append(mean(seen_crossval))
             topic_wise_unseen_scores.append(mean(unseen_crossval))
             
-        return [mean(topic_wise_seen_scores),mean(topic_wise_unseen_scores)]
+        return [[mean(topic_wise_seen_scores)],[mean(topic_wise_unseen_scores)]]
 
     def createFolds(self, Data):
         '''Split each of the part in the partitioned data into different folds for the cross validation
