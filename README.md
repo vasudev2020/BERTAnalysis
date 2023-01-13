@@ -7,8 +7,13 @@ Analyse the topical component of BERT embedding based approach by using topic-aw
 + `Embedding.py` - A class which generates different kinds of embeddings of input sentence
 + `TopicAwareProbe.py` - The class defines the topic-aware probe
 + `TopicModel.py` - A class for topic modelling 
-+ `data` -  A folder which contains VNIC datasets (Cook et al 2008)[^1] and Porbing task dataset (Conneau et al. 2018)[^2]
-	
++ `data/` -  A folder which contains VNIC datasets (Cook et al 2008)[^1]
+<!--- +  and Porbing task dataset (Conneau et al. 2018)[^2]--->
+
+# Configure
++ pip install 
++ Copy probing datasets from https://github.com/facebookresearch/SentEval/tree/master/data/probing to `data/`
++ Copy glove dataset to `data/`
 
 # Entropy analysis of VNIC dataset
 
