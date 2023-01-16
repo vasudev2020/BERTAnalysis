@@ -10,10 +10,15 @@ Analyse the topical component of BERT embedding based approach by using topic-aw
 + `data/` -  A folder which contains VNIC datasets (Cook et al 2008)[^1]
 <!--- +  and Porbing task dataset (Conneau et al. 2018)[^2]--->
 
-# Configure
-+ pip install 
+# Install required python packages
++ ```pip install sklearn, pandas, scipy, statistics, collections```
++ ```pip install tqdm, warnings, argparse, time, pickle, datetime```
++ ```pip install torch, numpy, pytorch_pretrained_bert```
++ ```pip install matplotlib, gensim, spacy, nltk```
+
+# Copy files
 + Copy probing datasets from https://github.com/facebookresearch/SentEval/tree/master/data/probing to `data/`
-+ Copy and extract GloVe dataset glove.840B.300d from https://nlp.stanford.edu/projects/glove/ to `data/`
++ Copy and extract GloVe vectors glove.840B.300d from https://nlp.stanford.edu/projects/glove/ to `data/`
 
 # Entropy analysis of VNIC dataset
 
