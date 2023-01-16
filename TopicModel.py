@@ -13,7 +13,7 @@ from gensim.models import CoherenceModel
 import spacy
 
 from nltk.corpus import stopwords
-path = '../Data/BERTAnalysis/'
+path = './data/'
 
 
 class TopicModel:
