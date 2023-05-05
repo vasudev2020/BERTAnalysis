@@ -78,9 +78,22 @@ class TopicAwareProbe:
             
         return pd.concat(Topics,ignore_index=True)
     
+    def printEntropy(self,Entropies):
+        print('{0:<18} {1:<18} {2:<18} {3:<18}'.format('Category','Mean entropy', 'Min entropy', 'Max entropy'))
+        for e in Entropies:
+            print('{0:<18} {1:<18} {2:<18} {3:<18}'.format(e,round(mean(Entropies[e]),4), round(min(Entropies[e]),4), round(max(Entropies[e]),4)))
+        avg_mean = round(mean([mean(Entropies[e]) for e in Entropies]),4)
+        avg_min = round(mean([min(Entropies[e]) for e in Entropies]),4)
+        avg_max = round(mean([max(Entropies[e]) for e in Entropies]),4)
+        print('{0:<18} {1:<18} {2:<18} {3:<18}'.format('Average',avg_mean,avg_min,avg_max))
+            
+    
     def entropyAnalysis(self,data,labels,expressions):
         LabelEntropy = defaultdict(list)
         ExpressionEntropy = defaultdict(list)
+
+        LiteralExpressionEntropy = defaultdict(list)
+        IdiomaticExpressionEntropy = defaultdict(list)
 
         for mp in tqdm(range(self.mstart,self.mstop,self.mstep)): 
             if self.train0labels:    self.TM.train([d for d,l in zip(data,labels) if l==0],mp)
@@ -101,7 +114,48 @@ class TopicAwareProbe:
                 max_exp_entropy = stats.entropy([1]*len(Topics.loc[Topics['Expressions']==e]))  
                 ExpressionEntropy[e].append(stats.entropy(tg[e])/min(max_entropy,max_exp_entropy))
             
-            #TODO: keywords of topics             
+            tg = Topics.groupby(['Expressions','Labels','Dominant_Topic']).size()
+            for e in Topics['Expressions'].unique():
+                max_lit_exp_entropy = stats.entropy([1]*len(Topics.loc[(Topics['Expressions']==e) & (Topics['Labels']==0)]))  
+                max_idiom_exp_entropy = stats.entropy([1]*len(Topics.loc[(Topics['Expressions']==e) & (Topics['Labels']==1)]))  
+
+                if 0 in tg[e] and max_lit_exp_entropy>0:
+                    LiteralExpressionEntropy[e].append(stats.entropy(tg[e][0])/min(max_entropy,max_lit_exp_entropy))
+                if 1 in tg[e] and max_idiom_exp_entropy>0:
+                    IdiomaticExpressionEntropy[e].append(stats.entropy(tg[e][1])/min(max_entropy,max_idiom_exp_entropy))
+
+        print('Label distributional entropies')
+        self.printEntropy(LabelEntropy)
+
+        print('Expression distributional entropies')
+        self.printEntropy(ExpressionEntropy)
+        
+        print('Literal Expression distributional entropies')
+        self.printEntropy(LiteralExpressionEntropy)
+        
+        print('Idiomatic Expression distributional entropies')
+        self.printEntropy(IdiomaticExpressionEntropy)
+        
+        '''
+        print('{0:<18} {1:<18} {2:<18} {3:<18}'.format('Expression','Mean literal-entropy', 'Min literal-entropy', 'Max literal-entropy'))
+        for e in LiteralExpressionEntropy:  
+            print('{0:<18} {1:<18} {2:<18} {3:<18}'.format(e,round(mean(LiteralExpressionEntropy[e]),4), round(min(LiteralExpressionEntropy[e]),4), round(max(LiteralExpressionEntropy[e]),4)))
+        avg_mean = round(mean([mean(LiteralExpressionEntropy[e]) for e in LiteralExpressionEntropy]),4)
+        avg_min = round(mean([min(LiteralExpressionEntropy[e]) for e in LiteralExpressionEntropy]),4)
+        avg_max = round(mean([max(LiteralExpressionEntropy[e]) for e in LiteralExpressionEntropy]),4)
+        print('{0:<18} {1:<18} {2:<18} {3:<18}'.format('Average',avg_mean,avg_min,avg_max))
+            
+        print()
+        print('{0:<18} {1:<18} {2:<18} {3:<18}'.format('Expression','Mean idiom-entropy', 'Min idiom-entropy', 'Max idiom-entropy'))
+        for e in IdiomaticExpressionEntropy:  
+            print('{0:<18} {1:<18} {2:<18} {3:<18}'.format(e,round(mean(IdiomaticExpressionEntropy[e]),4), round(min(IdiomaticExpressionEntropy[e]),4), round(max(IdiomaticExpressionEntropy[e]),4)))
+        avg_mean = round(mean([mean(IdiomaticExpressionEntropy[e]) for e in IdiomaticExpressionEntropy]),4)
+        avg_min = round(mean([min(IdiomaticExpressionEntropy[e]) for e in IdiomaticExpressionEntropy]),4)
+        avg_max = round(mean([max(IdiomaticExpressionEntropy[e]) for e in IdiomaticExpressionEntropy]),4)
+        print('{0:<18} {1:<18} {2:<18} {3:<18}'.format('Average',avg_mean,avg_min,avg_max))
+        
+        print()
+
         print('{0:<18} {1:<18} {2:<18} {3:<18}'.format('Label','Mean entropy', 'Min entropy', 'Max entropy'))
         for l in LabelEntropy:  
             print('{0:<18} {1:<18} {2:<18} {3:<18}'.format(l,round(mean(LabelEntropy[l]),4), round(min(LabelEntropy[l]),4), round(max(LabelEntropy[l]),4)))
@@ -117,7 +171,7 @@ class TopicAwareProbe:
         avg_max = round(mean([max(ExpressionEntropy[e]) for e in ExpressionEntropy]),4)
         print('{0:<18} {1:<18} {2:<18} {3:<18}'.format('Average',avg_mean,avg_min,avg_max))
         
-        
+        '''
     def getSeenUnseenScores(self,Data,embtype):
         model = MLPClassifier()
         self.createFolds(Data)
@@ -171,7 +225,10 @@ class TopicAwareProbe:
         self.multiclass = False if n_class==2 else True
         
         Scores = {}
-        for mp in tqdm(range(self.mstart,self.mstop,self.mstep)):  
+        E = [[emb+'_seen', emb+'_unseen'] for emb in self.emb_types]
+        print(',,'+','.join([ee for e in E for ee in e]))
+        #for mp in tqdm(range(self.mstart,self.mstop,self.mstep)):  
+        for mp in range(self.mstart,self.mstop,self.mstep):  
             if self.train0labels:    self.TM.train([d for d,l in zip(data,labels) if l==0],mp)
             else:   self.TM.train(data,mp)
             Topics = self.TM.topicModel(data,expressions,labels)
@@ -187,13 +244,22 @@ class TopicAwareProbe:
 
             Topics = self.tailReduction(Topics,Labels)
                         
+            SS = []
             for embtype in self.emb_types:
                 #seen_score,unseen_score = self.getSeenUnseenScores_new(Topics,embtype)
                 seen_score,unseen_score = self.getSeenUnseenScores(Topics,embtype)
+                
+                SS.append(zip(seen_score,unseen_score))
+                #for ss,us in zip(seen_score,unseen_score):  print(embtype+','+str(mp)+','+str(ss)+','+str(us))
+                
                 if embtype+'_seen' not in Scores: Scores[embtype+'_seen']=[]
                 Scores[embtype+'_seen'] += seen_score
                 if embtype+'_unseen' not in Scores: Scores[embtype+'_unseen']=[]
                 Scores[embtype+'_unseen'] += unseen_score
+                
+            for i,S in enumerate(zip(*SS)):
+                S = [str(ss) for s in S for ss in s]
+                print(str(mp)+','+str(i)+','+','.join(S))
                 
         #print('{0:<8} {1:<8} {2:<8} {3:<8} {4:<8}'.format('Emb','Seen','Unseen','Diff','p-value'))
         print('{0:<8} {1:<8} {2:<8} {3:<8}'.format('Emb','Seen','Unseen','Diff'))
