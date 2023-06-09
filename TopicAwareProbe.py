@@ -78,6 +78,30 @@ class TopicAwareProbe:
             
         return pd.concat(Topics,ignore_index=True)
     
+    def getTopicCounts(self, data, labels, expressions):
+        for mp in range(self.mstart,self.mstop,self.mstep): 
+            with warnings.catch_warnings():
+                filterwarnings("ignore", category=FutureWarning)
+                if self.train0labels:    self.TM.train([d for d,l in zip(data,labels) if l==0],mp)
+                else:   self.TM.train(data,mp)
+                
+                Topics = self.TM.topicModel(data,expressions,labels)
+                Topics = Topics.loc[Topics['Dominant_Topic']!=-1]
+                init_topics = len(Topics['Dominant_Topic'].unique())            
+                Labels = len(Topics['Labels'].unique())
+                
+                DomTopics = list(Topics['Dominant_Topic'].unique())
+                TopicGroup = [Topics.loc[(Topics['Dominant_Topic']==dt)].reset_index() for dt in DomTopics]
+                
+                tails = [1 if len(g.groupby(['Labels']).size())!=Labels or min([g.groupby(['Labels']).size()[l] for l in range(Labels)])<5 else 0 for g in TopicGroup]
+                
+    
+                Topics = self.tailReduction(Topics,Labels)
+                topics_after_red = len(Topics['Dominant_Topic'].unique()) 
+                print(mp, init_topics,len(tails)-sum(tails),sum(tails),topics_after_red)
+
+        
+    
     def printEntropy(self,Entropies):
         print('{0:<18} {1:<18} {2:<18} {3:<18}'.format('Category','Mean entropy', 'Min entropy', 'Max entropy'))
         for e in Entropies:
@@ -403,6 +427,7 @@ if __name__ == '__main__':
     parser.add_argument('--train0labels', action='store_true', help='Train topic model using 0 (literal in case of idiom task) labels')
     parser.add_argument('--entropyanalysis', action='store_true', help='Do the entropy analysis')
     parser.add_argument('--probe', action='store_true', help='Do the topic aware probing')
+    parser.add_argument('--topiccount', action='store_true', help='Do the topic aware probing')
     
     args=parser.parse_args() 
     t0 = time.time()
@@ -418,6 +443,8 @@ if __name__ == '__main__':
     
     if args.entropyanalysis:    ProbeModel.entropyAnalysis(data,labels,expressions)
     if args.probe:  ProbeModel.probe(data,labels,expressions)
+    if args.topiccount:  ProbeModel.getTopicCounts(data,labels,expressions)
+
     t = timedelta(seconds=time.time()-t0)
     #print(time.time()-t0)
     print(t)
