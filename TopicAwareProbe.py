@@ -26,13 +26,14 @@ from Embedding import Embedding
 from TopicModel import TopicModel
 
 class TopicAwareProbe:
-    def __init__(self,emb_types, mstart=5, mstop=51, mstep=5, train0labels=False, num_folds=5, allembs=False):
+    def __init__(self,emb_types, mstart=5, mstop=51, mstep=5, train0labels=False, num_folds=5, allembs=False, roberta=False):
         self.TM = TopicModel()
         self.emb_types = emb_types
         self.mstart = mstart
         self.mstop = mstop
         self.mstep = mstep
         self.train0labels = train0labels
+        self.roberta = roberta
         
         self.num_folds = num_folds
         self.allembs = allembs
@@ -120,8 +121,11 @@ class TopicAwareProbe:
         IdiomaticExpressionEntropy = defaultdict(list)
 
         for mp in tqdm(range(self.mstart,self.mstop,self.mstep)): 
-            if self.train0labels:    self.TM.train([d for d,l in zip(data,labels) if l==0],mp)
-            else:   self.TM.train(data,mp)
+            with warnings.catch_warnings():
+                filterwarnings("ignore", category=FutureWarning)
+                
+                if self.train0labels:    self.TM.train([d for d,l in zip(data,labels) if l==0],mp)
+                else:   self.TM.train(data,mp)
             
             Topics = self.TM.topicModel(data,expressions,labels)
             Topics = Topics.loc[Topics['Dominant_Topic']!=-1]
@@ -253,10 +257,12 @@ class TopicAwareProbe:
         print(',,'+','.join([ee for e in E for ee in e]))
         #for mp in tqdm(range(self.mstart,self.mstop,self.mstep)):  
         for mp in range(self.mstart,self.mstop,self.mstep):  
-            if self.train0labels:    self.TM.train([d for d,l in zip(data,labels) if l==0],mp)
-            else:   self.TM.train(data,mp)
-            Topics = self.TM.topicModel(data,expressions,labels)
-            Topics = Topics.loc[Topics['Dominant_Topic']!=-1]
+            with warnings.catch_warnings():
+                filterwarnings("ignore", category=FutureWarning)
+                if self.train0labels:    self.TM.train([d for d,l in zip(data,labels) if l==0],mp)
+                else:   self.TM.train(data,mp)
+                Topics = self.TM.topicModel(data,expressions,labels)
+                Topics = Topics.loc[Topics['Dominant_Topic']!=-1]
             
             Labels = len(Topics['Labels'].unique())
         
@@ -350,7 +356,7 @@ class TopicAwareProbe:
                         
     def getEmb(self,sent,embtype):
         ''' This will return the 'embtype' embedding of input sentence 'sent' '''
-        if not hasattr(self,'emb'):   self.emb = Embedding(self.allembs) 
+        if not hasattr(self,'emb'):   self.emb = Embedding(self.allembs,self.roberta) 
         if sent not in self.Embs:   self.Embs[sent] = self.emb.getMean(sent)
         return self.Embs[sent][embtype]
         
@@ -424,6 +430,8 @@ if __name__ == '__main__':
     parser.add_argument('--size', type=int, default=None, help='maximum data size limit. None for no limit')
 
     parser.add_argument('--alllayers', action='store_true', help='Analyse all 12 layers of BERT')
+    parser.add_argument('--roberta', action='store_true', help='Analyse RoBERTa instead of BERT')
+
     parser.add_argument('--train0labels', action='store_true', help='Train topic model using 0 (literal in case of idiom task) labels')
     parser.add_argument('--entropyanalysis', action='store_true', help='Do the entropy analysis')
     parser.add_argument('--probe', action='store_true', help='Do the topic aware probing')
@@ -437,9 +445,12 @@ if __name__ == '__main__':
     
     #print(len(data))
     embs = ['Glove','Rand']
-    embs += (['BERT'+str(l) for l in range(12)] if args.alllayers else ['BERT11'])
+    if args.roberta:
+        embs += (['RoBERTa'+str(l) for l in range(12)] if args.alllayers else ['RoBERTa11'])
+    else:
+        embs += (['BERT'+str(l) for l in range(12)] if args.alllayers else ['BERT11'])
     
-    ProbeModel = TopicAwareProbe(embs, args.mstart, args.mstop, args.mstep, args.train0labels, 5, args.alllayers)
+    ProbeModel = TopicAwareProbe(embs, args.mstart, args.mstop, args.mstep, args.train0labels, 5, args.alllayers, args.roberta)
     
     if args.entropyanalysis:    ProbeModel.entropyAnalysis(data,labels,expressions)
     if args.probe:  ProbeModel.probe(data,labels,expressions)
