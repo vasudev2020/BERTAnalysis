@@ -43,9 +43,10 @@ class Embedding:
         if self.roberta:
             inputs = self.rt(sent, return_tensors="pt")
             if self.allembs:
-                encoded_layers = self.roberta(**inputs,output_hidden_states=True).hidden_states[1]
+                #TODO: there is a mistake here in terms of the shape of encoded_layers. Correct it...
+                encoded_layers = self.roberta(**inputs,output_hidden_states=True).hidden_states
                 for layer in range(12):
-                    emb['RoBERTa'+str(layer)] = torch.mean(encoded_layers[layer], 1)[0].detach().numpy()
+                    emb['RoBERTa'+str(layer)] = torch.mean(encoded_layers[layer+1], 1)[0].detach().numpy()
             else:   
                 last_hidden_states = self.roberta(**inputs).last_hidden_state
                 emb['RoBERTa11'] = torch.mean(last_hidden_states, 1)[0].detach().numpy()
