@@ -41,7 +41,7 @@ class Embedding:
         embs = [self.gloveModel[w] for w in sent.split() if w in self.gloveModel]
         emb['Glove'] = np.mean(embs,axis=0)
         if self.roberta:
-            inputs = self.rt(sent, return_tensors="pt")
+            inputs = self.rt(sent, return_tensors="pt",truncation=True)
             if self.allembs:
                 #TODO: there is a mistake here in terms of the shape of encoded_layers. Correct it...
                 encoded_layers = self.roberta(**inputs,output_hidden_states=True).hidden_states
